@@ -752,10 +752,6 @@
 
         async function initCloudSync() {
             try {
-                if (typeof __firebase_config === 'undefined' || !__firebase_config) {
-                    updateCloudBadge('offline', 'Local Saved');
-                    return;
-                }
                 const [appMod, authMod, fsMod] = await Promise.all([
                     import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js'),
                     import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js'),
