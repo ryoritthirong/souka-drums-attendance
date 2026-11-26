@@ -1,0 +1,2772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Souka Drums — Digital Attendance Card</title>
+
+    <!-- Google Fonts: Plus Jakarta Sans (Display), Inter (Body), JetBrains Mono (Dates/Stamps) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brandBlue: '#0000FF',
+                        brandBlueDark: '#0000CC'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        };
+    </script>
+
+    <style>
+        /* Subtle paper grain background for crisp studio card feel */
+        body {
+            background-color: #F4F4F6;
+            background-image: radial-gradient(#D4D4D8 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Tactile stamp entrance animation */
+        @keyframes stampPop {
+            0% { transform: scale(1.28) rotate(-8deg); opacity: 0; }
+            60% { transform: scale(0.96) rotate(2deg); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .stamp-pop {
+            animation: stampPop 0.24s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        /* Clean Horizontal Oval Rubber Stamp */
+        .oval-stamp-primary {
+            border-radius: 9999px;
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85), inset 0 0 0 3.5px rgba(5, 150, 105, 0.45);
+        }
+        .oval-stamp-overlay {
+            border-radius: 9999px;
+            box-shadow: 0 6px 14px -4px rgba(0, 0, 0, 0.16), inset 0 0 0 2px rgba(255, 255, 255, 0.9), inset 0 0 0 3px rgba(5, 150, 105, 0.4);
+        }
+
+        /* Clean thin scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #D4D4D8; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #A1A1AA; }
+    </style>
+</head>
+<body class="min-h-screen text-black font-sans antialiased selection:bg-brandBlue selection:text-white">
+
+    <!-- Top Studio Header Bar -->
+    <header class="sticky top-0 z-30 bg-black text-white border-b-2 border-black shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+            <!-- Stacked Lowercase Brand Mark: souka drums -->
+            <div onclick="backToMonthColumns()" class="flex items-center gap-3 cursor-pointer select-none">
+                <div class="w-10 h-10 rounded-xl bg-brandBlue flex flex-col items-center justify-center leading-none border border-white/25 shadow-sm shrink-0">
+                    <span class="font-display font-extrabold text-[11px] tracking-tight text-white">souka</span>
+                    <span class="font-display font-extrabold text-[11px] tracking-tight text-white/90">drums</span>
+                </div>
+                <div class="leading-tight">
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-display font-extrabold text-base sm:text-lg tracking-tight text-white">souka drums</h1>
+                        <span class="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white/15 text-[9px] font-mono font-bold text-emerald-300 uppercase">v1.0</span>
+                    </div>
+                    <p class="text-[10px] sm:text-xs font-mono uppercase tracking-widest text-neutral-400">Digital Attendance Card · 2026</p>
+                </div>
+            </div>
+
+            <!-- Action Controls -->
+            <div class="flex items-center gap-2">
+                <button id="soundToggleBtn" type="button" onclick="toggleSound()" title="Toggle Stamp Sound Effects"
+                        class="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-mono transition cursor-pointer">
+                    <span id="soundIcon">🔊</span>
+                    <span id="soundLabel" class="hidden lg:inline">SFX On</span>
+                </button>
+
+                <button type="button" onclick="openBackupModal()" title="Export or Import JSON Backup"
+                        class="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-mono transition cursor-pointer">
+                    <span>💾</span>
+                    <span class="hidden sm:inline">Backup</span>
+                </button>
+
+                <button id="headerSaveBtn" type="button" onclick="manualSaveAllChanges()" title="Save & Sync All Changes Now"
+                        class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-display font-bold text-xs border border-white/25 shadow-sm transition active:translate-y-0.5 cursor-pointer">
+                    <span>✓ Save</span>
+                </button>
+
+                <span id="cloudSyncBadge" title="Cloud Sync Status"
+                      class="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-white/10 border border-white/25 text-xs font-mono">
+                    <span id="cloudSyncDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+                    <span id="cloudSyncLabel" class="hidden md:inline">Connecting...</span>
+                </span>
+
+                <button type="button" onclick="openStudentModal()"
+                        class="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brandBlue hover:bg-brandBlueDark text-white font-display font-bold text-xs sm:text-sm border border-white/25 shadow-sm transition active:translate-y-0.5 cursor-pointer">
+                    <span>+ New Student</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Two-Column Studio Workspace -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- Left Sidebar: Student Roster with Fixed Weekly Day Filter -->
+        <aside class="lg:col-span-4 xl:col-span-3 bg-white border-2 border-black rounded-3xl p-4 sm:p-5 shadow-[6px_6px_0px_#000000]">
+            <div class="flex items-center justify-between gap-2 mb-3">
+                <h2 class="font-display font-extrabold text-base text-black tracking-tight">Students</h2>
+                <span id="studentCountBadge" class="px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-300 text-[11px] font-mono font-bold text-neutral-700">0 / 0</span>
+            </div>
+
+            <!-- Search Input -->
+            <div class="relative mb-3">
+                <input id="studentSearchInput" type="text" oninput="handleSearchInput(this.value)"
+                       placeholder="Search name, grade, or day..."
+                       class="w-full pl-3.5 pr-8 py-2 rounded-xl border-2 border-neutral-200 focus:border-brandBlue focus:outline-none text-xs font-medium bg-neutral-50 focus:bg-white transition">
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 text-xs pointer-events-none">⌕</span>
+            </div>
+
+            <!-- Day-of-Week Quick Filter Pills -->
+            <div id="dayFilterBar" class="flex flex-wrap gap-1 mb-3.5"></div>
+
+            <!-- Scrollable Roster List -->
+            <div id="studentListContainer" class="space-y-2 max-h-[55vh] lg:max-h-[65vh] overflow-y-auto pr-1"></div>
+        </aside>
+
+        <!-- Right Main Workspace: Step 2 (Oct–Dec 2026 Month Columns) -> Step 3 (4-Slot Punch Card) -->
+        <section id="mainCardWorkspace" class="lg:col-span-8 xl:col-span-9 min-w-0"></section>
+
+    </main>
+
+    <!-- Custom Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Student Add / Edit Modal -->
+    <div id="studentModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white border-2 border-black rounded-2xl w-full max-w-lg p-6 shadow-[8px_8px_0px_#000000] my-auto">
+            <div class="flex items-center justify-between pb-3 border-b border-neutral-200">
+                <h3 id="studentModalTitle" class="font-display font-extrabold text-lg text-black">Add New Student</h3>
+                <button type="button" onclick="closeStudentModal()" class="w-8 h-8 rounded-lg hover:bg-neutral-100 font-bold text-neutral-500 cursor-pointer">✕</button>
+            </div>
+            <form onsubmit="saveStudentForm(event)" class="mt-4 space-y-3.5">
+                <!-- Circular Student Photo Upload & Preview -->
+                <div class="flex items-center gap-4 p-3 rounded-2xl bg-neutral-50 border-2 border-neutral-200">
+                    <div id="studentPhotoPreviewBox" class="w-16 h-16 rounded-full border-2 border-black bg-brandBlue text-white flex items-center justify-center font-display font-extrabold text-lg overflow-hidden shrink-0 shadow-xs">
+                        SD
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs font-mono font-bold uppercase text-neutral-700">Student Card Photo</p>
+                        <p class="text-[11px] text-neutral-500 mt-0.5">Shows as a mini circle next to their name & on their ID card.</p>
+                        <div class="flex flex-wrap items-center gap-2 mt-2">
+                            <label class="px-3 py-1.5 rounded-lg bg-black hover:bg-brandBlue text-white text-[11px] font-display font-bold transition cursor-pointer">
+                                Upload Photo
+                                <input id="studentPhotoInput" type="file" accept="image/*" onchange="handleStudentPhotoUpload(event)" class="hidden">
+                            </label>
+                            <button id="removeStudentPhotoBtn" type="button" onclick="clearStudentPhoto()" class="hidden px-2.5 py-1.5 rounded-lg border border-neutral-300 hover:border-red-500 hover:text-red-600 text-[11px] font-display font-bold text-neutral-600 transition cursor-pointer">
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-mono font-bold uppercase text-neutral-600 mb-1">Student Name</label>
+                        <input id="studentNameInput" type="text" required oninput="refreshModalAvatarPreview()" placeholder="e.g. Chean Kyzer" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-neutral-300 focus:border-brandBlue focus:outline-none text-sm font-semibold">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono font-bold uppercase text-neutral-600 mb-1">Student ID</label>
+                        <input id="studentCodeInput" type="text" placeholder="SD-2026-01" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-neutral-300 focus:border-brandBlue focus:outline-none text-sm font-mono font-bold">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-mono font-bold uppercase text-neutral-600 mb-1">Fixed Weekly Day</label>
+                        <select id="studentDayInput" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-neutral-300 focus:border-brandBlue focus:outline-none text-sm font-semibold bg-white">
+                            <option value="1">Monday</option>
+                            <option value="2" selected>Tuesday</option>
+                            <option value="3">Wednesday</option>
+                            <option value="4">Thursday</option>
+                            <option value="5">Friday</option>
+                            <option value="6">Saturday</option>
+                            <option value="0">Sunday</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono font-bold uppercase text-neutral-600 mb-1">Class Time</label>
+                        <input id="studentScheduleInput" type="text" placeholder="e.g. 5:00 PM" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-neutral-300 focus:border-brandBlue focus:outline-none text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-mono font-bold uppercase text-neutral-600 mb-1">Grade / Focus</label>
+                        <input id="studentLevelInput" type="text" placeholder="e.g. Grade 2 · Rock & Pop" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-neutral-300 focus:border-brandBlue focus:outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono font-bold uppercase text-neutral-600 mb-1">Age / Category</label>
+                        <input id="studentAgeInput" type="text" placeholder="e.g. 10 yrs · Kids" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-neutral-300 focus:border-brandBlue focus:outline-none text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-mono font-bold uppercase text-neutral-600 mb-1">Parent / Student WhatsApp</label>
+                        <input id="studentPhoneInput" type="text" placeholder="e.g. +60 12-345 6789" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-neutral-300 focus:border-brandBlue focus:outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono font-bold uppercase text-neutral-600 mb-1">Joined / Card Notes</label>
+                        <input id="studentNotesInput" type="text" placeholder="e.g. Left-handed / Siblings B2B" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-neutral-300 focus:border-brandBlue focus:outline-none text-sm">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-3 border-t border-neutral-200 gap-2">
+                    <button id="deleteStudentBtn" type="button" onclick="deleteEditingStudent()" class="hidden px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-600 text-red-600 hover:text-white border border-red-300 text-xs font-display font-bold transition cursor-pointer">
+                        Delete Student
+                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="closeStudentModal()" class="px-4 py-2 rounded-xl border border-neutral-300 text-xs font-display font-bold text-neutral-600 hover:bg-neutral-100 cursor-pointer">Cancel</button>
+                        <button id="saveStudentSubmitBtn" type="submit" class="px-4 py-2 rounded-xl bg-brandBlue hover:bg-brandBlueDark text-white text-xs font-display font-bold shadow-sm cursor-pointer">Save Student</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Slot Edit & Passport Make-Up Double Stamp Modal -->
+    <div id="slotModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white border-2 border-black rounded-2xl w-full max-w-md p-6 shadow-[8px_8px_0px_#000000] my-auto">
+            <div class="flex items-center justify-between pb-3 border-b border-neutral-200">
+                <div>
+                    <h3 id="slotModalTitle" class="font-display font-extrabold text-lg text-black">Week Slot</h3>
+                    <p id="slotModalSubtitle" class="text-xs font-mono text-neutral-500">Student</p>
+                </div>
+                <button type="button" onclick="closeSlotModal()" class="w-8 h-8 rounded-lg hover:bg-neutral-100 font-bold text-neutral-500 cursor-pointer">✕</button>
+            </div>
+            <form onsubmit="saveSlotModal(event)" class="mt-4 space-y-3.5">
+                <div>
+                    <label class="block text-xs font-mono font-bold uppercase text-neutral-600 mb-1">Primary Rubber Stamp Status</label>
+                    <select id="slotStatusSelect" onchange="updateSlotModalVisibility()" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-neutral-300 focus:border-brandBlue focus:outline-none text-sm font-semibold bg-white">
+                        <option value="attended">Attended (Electric Blue)</option>
+                        <option value="absent">Student Absent (Crimson Red)</option>
+                        <option value="postponed">Studio Postponed (Amber)</option>
+                        <option value="replacement">Replacement Class (Emerald Oval)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-mono font-bold uppercase text-neutral-600 mb-1">Original Lesson Date</label>
+                    <input id="slotDateInput" type="date" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-neutral-300 focus:border-brandBlue focus:outline-none text-sm font-mono">
+                </div>
+
+                <!-- Direct Layered Green Oval Replacement Stamp onto Absent / Postponed Slot -->
+                <div id="directReplacementLayerWrapper" class="hidden p-3.5 rounded-xl bg-emerald-50/80 border-2 border-emerald-500 space-y-2.5">
+                    <div class="flex items-center justify-between gap-2">
+                        <label class="flex items-center gap-2 cursor-pointer select-none">
+                            <input id="slotReplacedOverlayCheckbox" type="checkbox" onchange="updateSlotModalVisibility()" class="w-4 h-4 accent-emerald-600 rounded cursor-pointer">
+                            <span class="text-xs font-display font-extrabold text-emerald-900">Layer Oval Replacement Stamp</span>
+                        </label>
+                        <span class="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-mono font-bold">OVAL SEAL</span>
+                    </div>
+                    <p class="text-[11px] text-emerald-800 leading-snug">
+                        Keep the original Absent/Postponed record visible and stamp a clean green oval <strong>REPLACED</strong> seal with the replacement date below it.
+                    </p>
+                    <div id="slotReplacedDateContainer" class="hidden pt-1">
+                        <label class="block text-[11px] font-mono font-bold uppercase text-emerald-800 mb-1">Replacement Date Settled On</label>
+                        <input id="slotReplacedDateInput" type="date" class="w-full px-3 py-2 rounded-xl border-2 border-emerald-500 bg-white focus:outline-none text-sm font-mono font-bold text-emerald-900">
+                    </div>
+                </div>
+
+                <!-- Same-Day Extra Make-Up Time Top-Up (for Attended / Replacement slots) -->
+                <div id="sameDayMakeUpWrapper">
+                    <label class="block text-xs font-mono font-bold uppercase text-neutral-600 mb-1">Passport Green Oval Make-Up Double Stamp</label>
+                    <div class="flex gap-2 mb-2">
+                        <button type="button" onclick="quickSetMakeUp(0)" class="flex-1 py-1.5 rounded-lg border border-neutral-300 hover:border-black text-xs font-mono font-bold cursor-pointer">None</button>
+                        <button type="button" onclick="quickSetMakeUp(30)" class="flex-1 py-1.5 rounded-lg border border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white text-xs font-mono font-bold cursor-pointer">+30m Oval</button>
+                        <button type="button" onclick="quickSetMakeUp(60)" class="flex-1 py-1.5 rounded-lg border border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white text-xs font-mono font-bold cursor-pointer">+1h Oval</button>
+                    </div>
+                    <select id="slotMakeUpSelect" onchange="updateSlotModalVisibility()" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-neutral-300 focus:border-brandBlue focus:outline-none text-sm bg-white">
+                        <option value="0">0 mins (Standard 1h session)</option>
+                        <option value="30">+30 mins Make-Up Top-Up (1h 30m total)</option>
+                        <option value="60">+1 hour Make-Up Top-Up (2h straight block)</option>
+                    </select>
+                </div>
+
+                <div id="coversMissedSlotWrapper" class="hidden">
+                    <label class="block text-xs font-mono font-bold uppercase text-emerald-700 mb-1">Covers Missed / Postponed Session (Cross-Month Link)</label>
+                    <select id="slotCoversSelect" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-emerald-400 bg-emerald-50/60 focus:border-emerald-600 focus:outline-none text-sm font-medium text-black">
+                        <option value="">Auto-credit to overall balance</option>
+                    </select>
+                    <p class="text-[11px] text-neutral-500 mt-1">Links this replacement back to the original missed slot with a green settlement badge.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-mono font-bold uppercase text-neutral-600 mb-1">Lesson / Reason Note</label>
+                    <input id="slotNoteInput" type="text" placeholder="e.g. Studio no electricity / Replaced on Saturday" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-neutral-300 focus:border-brandBlue focus:outline-none text-sm">
+                </div>
+
+                <div class="flex items-center justify-between pt-3 border-t border-neutral-200 gap-2">
+                    <button type="button" onclick="clearCurrentSlot()" class="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-600 text-red-600 hover:text-white border border-red-300 text-xs font-display font-bold transition cursor-pointer">
+                        Clear Stamp
+                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="closeSlotModal()" class="px-4 py-2 rounded-xl border border-neutral-300 text-xs font-display font-bold text-neutral-600 hover:bg-neutral-100 cursor-pointer">Cancel</button>
+                        <button type="submit" class="px-4 py-2 rounded-xl bg-brandBlue hover:bg-brandBlueDark text-white text-xs font-display font-bold shadow-sm cursor-pointer">Apply Stamp</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- WhatsApp Summary Preview Modal -->
+    <div id="whatsappModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white border-2 border-black rounded-2xl w-full max-w-md p-6 shadow-[8px_8px_0px_#000000]">
+            <div class="flex items-center justify-between pb-3 border-b border-neutral-200">
+                <h3 class="font-display font-extrabold text-lg text-black">Parent WhatsApp Summary</h3>
+                <button type="button" onclick="closeWhatsAppModal()" class="w-8 h-8 rounded-lg hover:bg-neutral-100 font-bold text-neutral-500 cursor-pointer">✕</button>
+            </div>
+            <p class="text-xs text-neutral-500 mt-3 mb-2">Ready to paste directly into WhatsApp for parents:</p>
+            <textarea id="whatsappPreviewText" rows="10" readonly class="w-full p-3 rounded-xl border-2 border-neutral-300 bg-neutral-50 font-mono text-xs text-black focus:outline-none"></textarea>
+            <div class="flex items-center justify-end gap-2 mt-4">
+                <button type="button" onclick="closeWhatsAppModal()" class="px-4 py-2 rounded-xl border border-neutral-300 text-xs font-display font-bold text-neutral-600 hover:bg-neutral-100 cursor-pointer">Close</button>
+                <button type="button" onclick="copyWhatsAppMessage()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-display font-bold shadow-sm cursor-pointer">Copy Message</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup & Restore JSON Modal -->
+    <div id="backupModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white border-2 border-black rounded-2xl w-full max-w-md p-6 shadow-[8px_8px_0px_#000000]">
+            <div class="flex items-center justify-between pb-3 border-b border-neutral-200">
+                <h3 class="font-display font-extrabold text-lg text-black">Data Backup & Sync</h3>
+                <button type="button" onclick="closeBackupModal()" class="w-8 h-8 rounded-lg hover:bg-neutral-100 font-bold text-neutral-500 cursor-pointer">✕</button>
+            </div>
+            <p class="text-xs text-neutral-600 mt-3 leading-relaxed">
+                Changes automatically save locally (IndexedDB + LocalStorage) and sync across your devices when Cloud Sync is connected. Download a portable JSON snapshot anytime.
+            </p>
+            <div id="backupDataSummary" class="mt-3 p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-xs font-mono text-emerald-900">
+                Checking protected student records...
+            </div>
+            <div class="mt-4 space-y-3">
+                <button type="button" onclick="manualSaveAllChanges(true)" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-xs transition cursor-pointer">
+                    ✓ Lock & Sync All Student Data to Cloud Now
+                </button>
+                <button type="button" onclick="exportBackupJson()" class="w-full py-2.5 px-4 rounded-xl bg-black hover:bg-brandBlue text-white font-display font-bold text-xs transition cursor-pointer">
+                    Download JSON Backup
+                </button>
+                <label class="block w-full py-2.5 px-4 rounded-xl border-2 border-dashed border-neutral-400 hover:border-brandBlue text-center font-display font-bold text-xs text-neutral-700 hover:text-brandBlue transition cursor-pointer">
+                    Import JSON Backup File
+                    <input type="file" accept=".json,application/json" onchange="handleBackupFileImport(event)" class="hidden">
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CLOUD SYNC (FIRESTORE) & DATA PROTECTION ENGINE
+        // ==========================================
+        const LOCAL_STORAGE_KEY = 'souka_drums_students_2026_v3';
+        const DELETED_IDS_STORAGE_KEY = 'souka_drums_deleted_ids_2026';
+        const LEGACY_STORAGE_KEYS = ['souka_drums_students_2026_v2', 'souka_drums_students_2026_v1', 'souka_drums_students_v1'];
+        const IDB_DB_NAME = 'SoukaDrumsAttendanceDB';
+        const IDB_STORE_NAME = 'studio_records';
+        const IDB_RECORD_KEY = 'students_2026';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'souka-drums-studio';
+
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+        let unsubscribeStudents = null;
+        let isCloudReady = false;
+        let firestoreApi = null;
+        let hasCompletedInitialCloudLoad = false;
+        let isBatchSyncingDefaults = false;
+        const pendingCloudWriteIds = new Set();
+
+        function getDeletedStudentIds() {
+            try {
+                const raw = localStorage.getItem(DELETED_IDS_STORAGE_KEY);
+                const arr = raw ? JSON.parse(raw) : [];
+                return new Set(Array.isArray(arr) ? arr : []);
+            } catch (_) {
+                return new Set();
+            }
+        }
+
+        function recordDeletedStudentId(studentId) {
+            if (!studentId) return;
+            try {
+                const set = getDeletedStudentIds();
+                set.add(studentId);
+                localStorage.setItem(DELETED_IDS_STORAGE_KEY, JSON.stringify(Array.from(set)));
+            } catch (_) {
+                // Ignore storage errors
+            }
+        }
+
+        function clearDeletedStudentId(studentId) {
+            if (!studentId) return;
+            try {
+                const set = getDeletedStudentIds();
+                if (set.delete(studentId)) {
+                    localStorage.setItem(DELETED_IDS_STORAGE_KEY, JSON.stringify(Array.from(set)));
+                }
+            } catch (_) {
+                // Ignore storage errors
+            }
+        }
+
+        // ==========================================
+        // APPLICATION STATE
+        // ==========================================
+        const state = {
+            students: [],
+            activeStudentId: null,
+            activeMonthKey: null, // null = Step 2 (Month Columns), '2026-10' etc = Step 3 (4-Slot Card)
+            activeStampMode: 'attended', // attended | absent | postponed | replacement
+            searchQuery: '',
+            dayFilter: 'ALL',
+            soundEnabled: true,
+            editingStudentId: null,
+            pendingPhotoDataUrl: '',
+            pendingPhotoCleared: false,
+            isProcessingPhoto: false,
+            editingSlotIndex: null,
+            hasUnsavedChanges: false,
+            lastSavedTimeStr: ''
+        };
+
+        // ==========================================
+        // TACTILE WEB AUDIO STAMP SFX (NO EXTERNAL URLS)
+        // ==========================================
+        let audioCtx = null;
+
+        function playStampSound(type = 'stamp') {
+            if (!state.soundEnabled) return;
+            try {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) return;
+                if (!audioCtx) audioCtx = new AudioContextClass();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'clear') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.exponentialRampToValueAtTime(90, now + 0.08);
+                    gain.gain.setValueAtTime(0.14, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                } else if (type === 'success') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(520, now);
+                    osc.frequency.exponentialRampToValueAtTime(780, now + 0.11);
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+                    osc.start(now);
+                    osc.stop(now + 0.14);
+                } else {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(170, now);
+                    osc.frequency.exponentialRampToValueAtTime(48, now + 0.09);
+                    gain.gain.setValueAtTime(0.28, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                }
+            } catch (_) {
+                // Ignore audio errors when autoplay is restricted
+            }
+        }
+
+        function toggleSound() {
+            state.soundEnabled = !state.soundEnabled;
+            const icon = document.getElementById('soundIcon');
+            const label = document.getElementById('soundLabel');
+            if (icon) icon.textContent = state.soundEnabled ? '🔊' : '🔇';
+            if (label) label.textContent = state.soundEnabled ? 'SFX On' : 'Muted';
+            if (state.soundEnabled) playStampSound('success');
+        }
+
+        // ==========================================
+        // INDEXEDDB + LOCALSTORAGE CACHE LAYER
+        // ==========================================
+        function openStudioIndexedDB() {
+            return new Promise((resolve, reject) => {
+                if (typeof indexedDB === 'undefined') {
+                    resolve(null);
+                    return;
+                }
+                const req = indexedDB.open(IDB_DB_NAME, 1);
+                req.onupgradeneeded = (e) => {
+                    const idb = e.target.result;
+                    if (!idb.objectStoreNames.contains(IDB_STORE_NAME)) {
+                        idb.createObjectStore(IDB_STORE_NAME);
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function saveToIndexedDB(studentsList) {
+            try {
+                const idb = await openStudioIndexedDB();
+                if (!idb) return;
+                await new Promise((resolve, reject) => {
+                    const tx = idb.transaction(IDB_STORE_NAME, 'readwrite');
+                    tx.objectStore(IDB_STORE_NAME).put(JSON.parse(JSON.stringify(studentsList)), IDB_RECORD_KEY);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+            } catch (err) {
+                console.warn('IndexedDB write skipped:', err);
+            }
+        }
+
+        async function loadFromIndexedDB() {
+            try {
+                const idb = await openStudioIndexedDB();
+                if (!idb) return null;
+                return await new Promise((resolve, reject) => {
+                    const tx = idb.transaction(IDB_STORE_NAME, 'readonly');
+                    const req = tx.objectStore(IDB_STORE_NAME).get(IDB_RECORD_KEY);
+                    req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : null);
+                    req.onerror = () => reject(req.error);
+                });
+            } catch (err) {
+                console.warn('IndexedDB read skipped:', err);
+                return null;
+            }
+        }
+
+        function normalizeStudentNameKey(name) {
+            return (name || '')
+                .replace(/\((tue|sat|mon|wed|thu|fri|sun)\)/gi, '')
+                .replace(/[^a-z0-9]/gi, '')
+                .toLowerCase();
+        }
+
+        function saveToLocalCache() {
+            saveToIndexedDB(state.students);
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state.students));
+            } catch (err) {
+                console.warn('LocalStorage quota reached, using IndexedDB + Cloud:', err);
+                showToast('Photo storage is large — safely backed up to IndexedDB & Cloud.');
+            }
+        }
+
+        function loadFromLocalCache() {
+            try {
+                const candidateKeys = [LOCAL_STORAGE_KEY, ...LEGACY_STORAGE_KEYS];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (k && k.toLowerCase().includes('souka_drums') && k !== DELETED_IDS_STORAGE_KEY && !candidateKeys.includes(k)) {
+                        candidateKeys.push(k);
+                    }
+                }
+
+                const recoveredById = new Map();
+                const legacyProfileByName = new Map();
+
+                candidateKeys.forEach(key => {
+                    const raw = localStorage.getItem(key);
+                    if (!raw) return;
+                    try {
+                        const parsed = JSON.parse(raw);
+                        const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.students) ? parsed.students : null);
+                        if (!list || list.length === 0) return;
+                        list.forEach((item, idx) => {
+                            if (!item || !item.id) return;
+                            const normalized = ensureStudentMonthlyCards(item, idx);
+                            if (!recoveredById.has(normalized.id)) {
+                                recoveredById.set(normalized.id, normalized);
+                            } else {
+                                recoveredById.set(normalized.id, smartMergeStudentRecord(recoveredById.get(normalized.id), normalized));
+                            }
+
+                            const nameKey = normalizeStudentNameKey(normalized.name);
+                            if (nameKey && (normalized.photoDataUrl || normalized.phone || normalized.ageGroup || normalized.bioNotes)) {
+                                const prev = legacyProfileByName.get(nameKey) || {};
+                                legacyProfileByName.set(nameKey, {
+                                    photoDataUrl: normalized.photoDataUrl || prev.photoDataUrl || '',
+                                    phone: normalized.phone || prev.phone || '',
+                                    ageGroup: normalized.ageGroup || prev.ageGroup || '',
+                                    bioNotes: normalized.bioNotes || prev.bioNotes || ''
+                                });
+                            }
+                        });
+                    } catch (_) {
+                        // Ignore incompatible keys
+                    }
+                });
+
+                if (recoveredById.size === 0) return null;
+
+                return Array.from(recoveredById.values()).map(stu => {
+                    const nameKey = normalizeStudentNameKey(stu.name);
+                    const legacy = legacyProfileByName.get(nameKey);
+                    if (legacy) {
+                        if (!stu.photoDataUrl && legacy.photoDataUrl && !stu.photoCleared) stu.photoDataUrl = legacy.photoDataUrl;
+                        if (!stu.phone && legacy.phone) stu.phone = legacy.phone;
+                        if (!stu.ageGroup && legacy.ageGroup) stu.ageGroup = legacy.ageGroup;
+                        if (!stu.bioNotes && legacy.bioNotes) stu.bioNotes = legacy.bioNotes;
+                    }
+                    return stu;
+                });
+            } catch (err) {
+                console.warn('Local cache read skipped:', err);
+                return null;
+            }
+        }
+
+        function smartMergeStudentRecord(localStu, cloudStu) {
+            if (!localStu) return ensureStudentMonthlyCards(cloudStu);
+            if (!cloudStu) return ensureStudentMonthlyCards(localStu);
+
+            const localTs = Number(localStu.updatedAt) || 0;
+            const cloudTs = Number(cloudStu.updatedAt) || 0;
+            const primary = cloudTs >= localTs ? cloudStu : localStu;
+            const secondary = cloudTs >= localTs ? localStu : cloudStu;
+
+            const merged = JSON.parse(JSON.stringify(primary));
+
+            if (!merged.photoDataUrl && secondary.photoDataUrl && !merged.photoCleared) {
+                merged.photoDataUrl = secondary.photoDataUrl;
+            }
+            if (!merged.phone && secondary.phone) merged.phone = secondary.phone;
+            if (!merged.ageGroup && secondary.ageGroup) merged.ageGroup = secondary.ageGroup;
+            if (!merged.bioNotes && secondary.bioNotes) merged.bioNotes = secondary.bioNotes;
+            if (!merged.studentCode && secondary.studentCode) merged.studentCode = secondary.studentCode;
+
+            TERM_MONTHS.forEach(m => {
+                const pCard = merged.monthlyCards?.[m.key];
+                const sCard = secondary.monthlyCards?.[m.key];
+                if (pCard && sCard && Array.isArray(pCard.slots) && Array.isArray(sCard.slots)) {
+                    pCard.slots = pCard.slots.map((pSlot, idx) => {
+                        const sSlot = sCard.slots[idx];
+                        if (!pSlot?.status && sSlot?.status) {
+                            return JSON.parse(JSON.stringify(sSlot));
+                        }
+                        return pSlot;
+                    });
+                }
+            });
+
+            merged.updatedAt = Math.max(localTs, cloudTs);
+            return ensureStudentMonthlyCards(merged);
+        }
+
+        function countTotalStampedSlots() {
+            let total = 0;
+            state.students.forEach(stu => {
+                TERM_MONTHS.forEach(m => {
+                    const card = stu.monthlyCards?.[m.key];
+                    if (card && Array.isArray(card.slots)) {
+                        total += card.slots.filter(sl => Boolean(sl.status)).length;
+                    }
+                });
+            });
+            return total;
+        }
+
+        function countStudentsWithPhotos() {
+            return state.students.filter(stu => Boolean(stu.photoDataUrl)).length;
+        }
+
+        function updateCloudBadge(status, label) {
+            const dot = document.getElementById('cloudSyncDot');
+            const text = document.getElementById('cloudSyncLabel');
+            if (!dot || !text) return;
+            text.textContent = label;
+            dot.className = 'w-2 h-2 rounded-full ' + (
+                status === 'synced' ? 'bg-emerald-400' :
+                status === 'syncing' ? 'bg-brandBlue animate-pulse' :
+                status === 'offline' ? 'bg-amber-400' : 'bg-red-500'
+            );
+        }
+
+        function getStudentsCollectionRef() {
+            if (!db || !currentUser || !firestoreApi) return null;
+            return firestoreApi.collection(db, 'artifacts', appId, 'public', 'data', 'students');
+        }
+
+        function getStudentDocRef(studentId) {
+            if (!db || !currentUser || !firestoreApi) return null;
+            return firestoreApi.doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId);
+        }
+
+        async function syncStudentToCloud(student) {
+            saveToLocalCache();
+            if (!isCloudReady || !currentUser || !student || !student.id || !firestoreApi) return false;
+            pendingCloudWriteIds.add(student.id);
+            try {
+                updateCloudBadge('syncing', 'Syncing...');
+                const ref = getStudentDocRef(student.id);
+                if (!ref) return false;
+                const payload = JSON.parse(JSON.stringify(student));
+                payload.updatedAt = Number(student.updatedAt) || Date.now();
+                await firestoreApi.setDoc(ref, payload, { merge: true });
+                updateCloudBadge('synced', 'Cloud Synced');
+                return true;
+            } catch (err) {
+                console.error('Cloud sync write error:', err);
+                updateCloudBadge('offline', 'Local Saved');
+                return false;
+            } finally {
+                pendingCloudWriteIds.delete(student.id);
+            }
+        }
+
+        async function deleteStudentFromCloud(studentId) {
+            saveToLocalCache();
+            if (!isCloudReady || !currentUser || !studentId || !firestoreApi) return;
+            try {
+                updateCloudBadge('syncing', 'Syncing...');
+                const ref = getStudentDocRef(studentId);
+                if (!ref) return;
+                await firestoreApi.deleteDoc(ref);
+                updateCloudBadge('synced', 'Cloud Synced');
+            } catch (err) {
+                console.error('Cloud sync delete error:', err);
+            }
+        }
+
+        async function initCloudSync() {
+            try {
+                if (typeof __firebase_config === 'undefined' || !__firebase_config) {
+                    updateCloudBadge('offline', 'Local Saved');
+                    return;
+                }
+                const [appMod, authMod, fsMod] = await Promise.all([
+                    import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js'),
+                    import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js'),
+                    import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js')
+                ]);
+                firestoreApi = fsMod;
+
+const firebaseConfig = {
+    apiKey: "AIzaSyD8jYRFZz6Cv4wdL7CFoI-NpFAPi1Csg30",
+    authDomain: "souka-drums-attendance-tracker.firebaseapp.com",
+    projectId: "souka-drums-attendance-tracker",
+    storageBucket: "souka-drums-attendance-tracker.firebasestorage.app",
+    messagingSenderId: "189265900258",
+    appId: "1:189265900258:web:ae56095e1092c9e038e4bb",
+    measurementId: "G-KQ9ENW7TFY"
+  };
+  const app = appMod.initializeApp(firebaseConfig);
+  const auth = authMod.getAuth(app);
+  db = fsMod.getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await authMod.signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await authMod.signInAnonymously(auth);
+                }
+
+                authMod.onAuthStateChanged(auth, async (user) => {
+                    if (!user) return;
+                    currentUser = user;
+                    isCloudReady = true;
+                    updateCloudBadge('synced', 'Cloud Synced');
+
+                    if (unsubscribeStudents) unsubscribeStudents();
+                    const colRef = getStudentsCollectionRef();
+                    if (!colRef) return;
+
+                    unsubscribeStudents = fsMod.onSnapshot(colRef, async (snapshot) => {
+                        if (isBatchSyncingDefaults) return;
+
+                        if (snapshot.empty) {
+                            hasCompletedInitialCloudLoad = true;
+                            isBatchSyncingDefaults = true;
+                            try {
+                                const nowTs = Date.now();
+                                await Promise.all(state.students.map(stu => {
+                                    if (!stu.updatedAt) stu.updatedAt = nowTs;
+                                    return syncStudentToCloud(stu);
+                                }));
+                            } finally {
+                                isBatchSyncingDefaults = false;
+                            }
+                            return;
+                        }
+
+                        const cloudMap = new Map();
+                        snapshot.forEach(docSnap => {
+                            const cloudStu = docSnap.data();
+                            if (cloudStu && cloudStu.id) {
+                                cloudMap.set(cloudStu.id, ensureStudentMonthlyCards(cloudStu));
+                            }
+                        });
+
+                        const explicitlyRemovedIds = getDeletedStudentIds();
+                        if (hasCompletedInitialCloudLoad && typeof snapshot.docChanges === 'function') {
+                            snapshot.docChanges().forEach(change => {
+                                if (change.type === 'removed' && change.doc?.id) {
+                                    explicitlyRemovedIds.add(change.doc.id);
+                                }
+                            });
+                        }
+
+                        const mergedMap = new Map();
+                        const toPushUp = [];
+
+                        cloudMap.forEach((cloudStu, id) => {
+                            if (explicitlyRemovedIds.has(id)) return;
+                            const localStu = state.students.find(s => s.id === id) || null;
+                            const merged = smartMergeStudentRecord(localStu, cloudStu);
+                            mergedMap.set(id, merged);
+
+                            const localTs = Number(localStu?.updatedAt) || 0;
+                            const cloudTs = Number(cloudStu?.updatedAt) || 0;
+                            const localHasMissingPhoto = Boolean(localStu?.photoDataUrl && !cloudStu?.photoDataUrl && !cloudStu?.photoCleared);
+                            if (localStu && (localTs > cloudTs || localHasMissingPhoto) && !pendingCloudWriteIds.has(id)) {
+                                toPushUp.push(merged);
+                            }
+                        });
+
+                        for (const localStu of state.students) {
+                            if (!mergedMap.has(localStu.id) && !explicitlyRemovedIds.has(localStu.id)) {
+                                const normalized = ensureStudentMonthlyCards(localStu);
+                                mergedMap.set(normalized.id, normalized);
+                                if (!pendingCloudWriteIds.has(normalized.id)) {
+                                    toPushUp.push(normalized);
+                                }
+                            }
+                        }
+
+                        hasCompletedInitialCloudLoad = true;
+                        const mergedList = Array.from(mergedMap.values());
+                        if (mergedList.length > 0) {
+                            state.students = sortStudentsByWeeklySchedule(mergedList);
+                            saveToLocalCache();
+                            if (!state.students.some(s => s.id === state.activeStudentId)) {
+                                state.activeStudentId = state.students[0].id;
+                            }
+                            renderAll();
+                        }
+
+                        if (toPushUp.length > 0) {
+                            isBatchSyncingDefaults = true;
+                            try {
+                                await Promise.all(toPushUp.map(stu => syncStudentToCloud(stu)));
+                            } finally {
+                                isBatchSyncingDefaults = false;
+                            }
+                        }
+                        updateCloudBadge('synced', 'Cloud Synced');
+                    }, (error) => {
+                        console.error('Cloud snapshot listener error:', error);
+                        updateCloudBadge('offline', 'Local Saved');
+                    });
+                });
+            } catch (err) {
+                console.warn('Cloud sync unavailable, using local storage:', err);
+                updateCloudBadge('offline', 'Local Saved');
+            }
+        }
+
+        // ==========================================
+        // DAY OF WEEK & 2026 CALENDAR DATE ENGINE
+        // ==========================================
+        const WEEKDAY_ORDER = [
+            { value: 'ALL', short: 'ALL' },
+            { value: '1', short: 'MON' },
+            { value: '2', short: 'TUE' },
+            { value: '3', short: 'WED' },
+            { value: '4', short: 'THU' },
+            { value: '5', short: 'FRI' },
+            { value: '6', short: 'SAT' },
+            { value: '0', short: 'SUN' }
+        ];
+
+        const WEEKDAY_META = {
+            1: { short: 'MON', full: 'Monday', sortOrder: 1 },
+            2: { short: 'TUE', full: 'Tuesday', sortOrder: 2 },
+            3: { short: 'WED', full: 'Wednesday', sortOrder: 3 },
+            4: { short: 'THU', full: 'Thursday', sortOrder: 4 },
+            5: { short: 'FRI', full: 'Friday', sortOrder: 5 },
+            6: { short: 'SAT', full: 'Saturday', sortOrder: 6 },
+            0: { short: 'SUN', full: 'Sunday', sortOrder: 7 }
+        };
+
+        function getWeekdayMeta(dayNum) {
+            const parsed = Number(dayNum);
+            return WEEKDAY_META[Number.isNaN(parsed) ? 2 : parsed] || WEEKDAY_META[2];
+        }
+
+        function parseTimeToMinutes(timeStr) {
+            if (!timeStr) return 9999;
+            const m = String(timeStr).match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+            if (!m) return 9999;
+            let hrs = parseInt(m[1], 10);
+            const mins = parseInt(m[2] || '0', 10);
+            const mer = (m[3] || '').toLowerCase();
+            if (mer === 'pm' && hrs < 12) hrs += 12;
+            if (mer === 'am' && hrs === 12) hrs = 0;
+            return hrs * 60 + mins;
+        }
+
+        function sortStudentsByWeeklySchedule(list) {
+            return [...list].sort((a, b) => {
+                const dayA = getWeekdayMeta(a.lessonDayOfWeek).sortOrder;
+                const dayB = getWeekdayMeta(b.lessonDayOfWeek).sortOrder;
+                if (dayA !== dayB) return dayA - dayB;
+                const timeA = parseTimeToMinutes(a.schedule);
+                const timeB = parseTimeToMinutes(b.schedule);
+                if (timeA !== timeB) return timeA - timeB;
+                return (a.name || '').localeCompare(b.name || '');
+            });
+        }
+
+        function getScheduledDatesForMonth(monthKey, weekdayNum) {
+            const [yearStr, monthStr] = monthKey.split('-');
+            const year = parseInt(yearStr, 10) || 2026;
+            const monthIndex = (parseInt(monthStr, 10) || 11) - 1;
+            const targetDow = Number.isNaN(Number(weekdayNum)) ? 2 : Number(weekdayNum);
+
+            const dates = [];
+            const cursor = new Date(year, monthIndex, 1);
+            while (cursor.getMonth() === monthIndex) {
+                if (cursor.getDay() === targetDow) {
+                    const yyyy = cursor.getFullYear();
+                    const mm = String(cursor.getMonth() + 1).padStart(2, '0');
+                    const dd = String(cursor.getDate()).padStart(2, '0');
+                    dates.push(`${yyyy}-${mm}-${dd}`);
+                }
+                cursor.setDate(cursor.getDate() + 1);
+            }
+            return dates;
+        }
+
+        function getSlotScheduledDate(monthKey, weekdayNum, slotIndex) {
+            const dates = getScheduledDatesForMonth(monthKey, weekdayNum);
+            if (dates[slotIndex]) return dates[slotIndex];
+            if (dates.length > 0) return dates[dates.length - 1];
+            return getMonthMeta(monthKey).defaultDate;
+        }
+
+        // ==========================================
+        // DATA MODEL & 2026 MONTHLY TERM ENGINE
+        // ==========================================
+        const TERM_MONTHS = [
+            { key: '2026-10', label: 'October 2026', shortLabel: 'Oct 2026', monthOnly: 'October', defaultDate: '2026-10-06' },
+            { key: '2026-11', label: 'November 2026', shortLabel: 'Nov 2026', monthOnly: 'November', defaultDate: '2026-11-03' },
+            { key: '2026-12', label: 'December 2026', shortLabel: 'Dec 2026', monthOnly: 'December', defaultDate: '2026-12-01' }
+        ];
+
+        const BASE_SESSION_MINUTES = 60;
+
+        function getMonthMeta(monthKey) {
+            return TERM_MONTHS.find(m => m.key === monthKey) || TERM_MONTHS[1];
+        }
+
+        function createEmptyMonthlyCard(monthKey, weekdayNum = 2) {
+            const meta = getMonthMeta(monthKey);
+            return {
+                monthKey: meta.key,
+                monthLabel: meta.label,
+                slots: [0, 1, 2, 3].map(idx => ({
+                    status: null,
+                    date: getSlotScheduledDate(meta.key, weekdayNum, idx),
+                    makeUpMinutes: 0,
+                    note: '',
+                    coversTarget: '',
+                    replacedOnDate: ''
+                })),
+                cyclesCompleted: 0,
+                loyaltyRewardsEarned: 0
+            };
+        }
+
+        function ensureStudentMonthlyCards(student, fallbackIndex = 0) {
+            if (typeof student.lessonDayOfWeek !== 'number' || Number.isNaN(student.lessonDayOfWeek)) {
+                student.lessonDayOfWeek = 2;
+            }
+            if (!student.studentCode) {
+                student.studentCode = `SD-2026-${String(fallbackIndex + 1).padStart(2, '0')}`;
+            }
+            if (typeof student.photoDataUrl !== 'string') {
+                student.photoDataUrl = '';
+            }
+            if (typeof student.ageGroup !== 'string') {
+                student.ageGroup = '';
+            }
+            if (typeof student.bioNotes !== 'string') {
+                student.bioNotes = '';
+            }
+            if (!student.linkedProfileGroup) {
+                const baseKey = normalizeStudentNameKey(student.name);
+                if (baseKey === 'ethanlim') student.linkedProfileGroup = 'ethan_lim';
+                else if (baseKey === 'elvislim') student.linkedProfileGroup = 'elvis_lim';
+                else student.linkedProfileGroup = '';
+            }
+            if (!student.monthlyCards || typeof student.monthlyCards !== 'object') {
+                student.monthlyCards = {};
+            }
+            TERM_MONTHS.forEach(m => {
+                if (!student.monthlyCards[m.key]) {
+                    student.monthlyCards[m.key] = createEmptyMonthlyCard(m.key, student.lessonDayOfWeek);
+                } else {
+                    const card = student.monthlyCards[m.key];
+                    card.monthKey = m.key;
+                    card.monthLabel = m.label;
+                    if (!Array.isArray(card.slots) || card.slots.length !== 4) {
+                        card.slots = createEmptyMonthlyCard(m.key, student.lessonDayOfWeek).slots;
+                    } else {
+                        card.slots = card.slots.map((slot, idx) => ({
+                            status: slot?.status || null,
+                            date: slot?.date || getSlotScheduledDate(m.key, student.lessonDayOfWeek, idx),
+                            makeUpMinutes: Number(slot?.makeUpMinutes) || 0,
+                            note: slot?.note || '',
+                            coversTarget: slot?.coversTarget || '',
+                            replacedOnDate: slot?.replacedOnDate || ''
+                        }));
+                    }
+                    card.cyclesCompleted = Number(card.cyclesCompleted) || 0;
+                    card.loyaltyRewardsEarned = Number(card.loyaltyRewardsEarned) || 0;
+                }
+            });
+            return student;
+        }
+
+        function buildDefaultStudents() {
+            // TUESDAY
+            const chean = ensureStudentMonthlyCards({
+                id: 'stu_chean_kyzer',
+                studentCode: 'SD-2026-01',
+                name: 'Chean Kyzer',
+                level: 'Tuesday Slot · 5:00 PM',
+                lessonDayOfWeek: 2,
+                schedule: '5:00 PM',
+                phone: ''
+            }, 0);
+            chean.monthlyCards['2026-10'].slots = [
+                { status: 'attended', date: '2026-10-06', makeUpMinutes: 0, note: '4-way coordination warmups', coversTarget: '', replacedOnDate: '' },
+                { status: 'attended', date: '2026-10-13', makeUpMinutes: 0, note: 'Eighth-note rock fills', coversTarget: '', replacedOnDate: '' },
+                { status: 'attended', date: '2026-10-20', makeUpMinutes: 0, note: 'Metronome tempo control', coversTarget: '', replacedOnDate: '' },
+                { status: 'attended', date: '2026-10-27', makeUpMinutes: 0, note: 'Full song structure playthrough', coversTarget: '', replacedOnDate: '' }
+            ];
+            chean.monthlyCards['2026-10'].cyclesCompleted = 1;
+            chean.monthlyCards['2026-11'].slots = [
+                { status: 'attended', date: '2026-11-03', makeUpMinutes: 0, note: 'Linear groove fundamentals', coversTarget: '', replacedOnDate: '' },
+                { status: 'attended', date: '2026-11-10', makeUpMinutes: 0, note: 'Syncopated snare accents', coversTarget: '', replacedOnDate: '' },
+                { status: 'postponed', date: '2026-11-17', makeUpMinutes: 0, note: 'Studio no electricity (1h make-up owed)', coversTarget: '', replacedOnDate: '' },
+                { status: 'attended', date: '2026-11-24', makeUpMinutes: 30, note: 'Regular 1h + 30m split make-up top-up', coversTarget: '2026-11:2', replacedOnDate: '' }
+            ];
+
+            const ethanTue = ensureStudentMonthlyCards({
+                id: 'stu_ethan_lim_tue',
+                studentCode: 'SD-2026-02',
+                name: 'Ethan Lim (Tue)',
+                level: '2x/Week (Tue & Sat) · B2B w/ Elvis Lim',
+                lessonDayOfWeek: 2,
+                schedule: '7:00 PM',
+                phone: '',
+                bioNotes: 'Siblings B2B with Elvis Lim (2x/week)',
+                linkedProfileGroup: 'ethan_lim'
+            }, 1);
+
+            const elvisTue = ensureStudentMonthlyCards({
+                id: 'stu_elvis_lim_tue',
+                studentCode: 'SD-2026-03',
+                name: 'Elvis Lim (Tue)',
+                level: '2x/Week (Tue & Sat) · B2B w/ Ethan Lim',
+                lessonDayOfWeek: 2,
+                schedule: '8:00 PM',
+                phone: '',
+                bioNotes: 'Siblings B2B with Ethan Lim (2x/week)',
+                linkedProfileGroup: 'elvis_lim'
+            }, 2);
+
+            // WEDNESDAY
+            const mrRoyPng = ensureStudentMonthlyCards({
+                id: 'stu_mr_roy_png',
+                studentCode: 'SD-2026-04',
+                name: 'Mr. Roy Png',
+                level: 'Wednesday Slot · 10:30 AM',
+                lessonDayOfWeek: 3,
+                schedule: '10:30 AM',
+                phone: ''
+            }, 3);
+
+            const faizal = ensureStudentMonthlyCards({
+                id: 'stu_faizal',
+                studentCode: 'SD-2026-05',
+                name: 'Faizal',
+                level: 'Wednesday Slot · 11:30 AM',
+                lessonDayOfWeek: 3,
+                schedule: '11:30 AM',
+                phone: ''
+            }, 4);
+
+            const angJiaQian = ensureStudentMonthlyCards({
+                id: 'stu_ang_jia_qian',
+                studentCode: 'SD-2026-06',
+                name: 'Ang Jia Qian',
+                level: 'Wednesday Slot · 3:00 PM',
+                lessonDayOfWeek: 3,
+                schedule: '3:00 PM',
+                phone: ''
+            }, 5);
+
+            const neharikaRao = ensureStudentMonthlyCards({
+                id: 'stu_neharika_rao',
+                studentCode: 'SD-2026-07',
+                name: 'Neharika Rao',
+                level: 'Wednesday B2B w/ Dassavanth Rao',
+                lessonDayOfWeek: 3,
+                schedule: '5:00 PM',
+                phone: '',
+                bioNotes: 'Siblings B2B session with Dassavanth Rao'
+            }, 6);
+
+            const dassavanthRao = ensureStudentMonthlyCards({
+                id: 'stu_dassavanth_rao',
+                studentCode: 'SD-2026-08',
+                name: 'Dassavanth Rao',
+                level: 'Wednesday B2B w/ Neharika Rao',
+                lessonDayOfWeek: 3,
+                schedule: '6:00 PM',
+                phone: '',
+                bioNotes: 'Siblings B2B session with Neharika Rao'
+            }, 7);
+
+            // THURSDAY
+            const mrsLilian = ensureStudentMonthlyCards({
+                id: 'stu_mrs_lilian',
+                studentCode: 'SD-2026-09',
+                name: 'Mrs Lilian',
+                level: 'Thursday Slot · 4:00 PM',
+                lessonDayOfWeek: 4,
+                schedule: '4:00 PM',
+                phone: ''
+            }, 8);
+            mrsLilian.monthlyCards['2026-11'].slots = [
+                { status: 'attended', date: '2026-11-05', makeUpMinutes: 0, note: 'Basic rock beat consistency', coversTarget: '', replacedOnDate: '' },
+                { status: 'absent', date: '2026-11-12', makeUpMinutes: 0, note: 'Missed Wk 2 — replaced on 02 Dec 2026', coversTarget: '', replacedOnDate: '2026-12-02' },
+                { status: 'attended', date: '2026-11-19', makeUpMinutes: 0, note: 'Fill transitions into crash', coversTarget: '', replacedOnDate: '' },
+                { status: 'attended', date: '2026-11-26', makeUpMinutes: 0, note: 'Play-along dynamics', coversTarget: '', replacedOnDate: '' }
+            ];
+
+            const laoYiHeng = ensureStudentMonthlyCards({
+                id: 'stu_lao_yi_heng',
+                studentCode: 'SD-2026-10',
+                name: 'Lao Yi Heng',
+                level: 'Thursday Slot · 5:00 PM',
+                lessonDayOfWeek: 4,
+                schedule: '5:00 PM',
+                phone: ''
+            }, 9);
+
+            const xuZheng = ensureStudentMonthlyCards({
+                id: 'stu_xu_zheng',
+                studentCode: 'SD-2026-11',
+                name: 'Xu Zheng',
+                level: 'Thursday Slot · 6:30 PM',
+                lessonDayOfWeek: 4,
+                schedule: '6:30 PM',
+                phone: ''
+            }, 10);
+
+            // FRIDAY
+            const aali = ensureStudentMonthlyCards({
+                id: 'stu_aali',
+                studentCode: 'SD-2026-12',
+                name: 'Aali',
+                level: 'Friday Slot · 10:30 AM',
+                lessonDayOfWeek: 5,
+                schedule: '10:30 AM',
+                phone: ''
+            }, 11);
+
+            const rio = ensureStudentMonthlyCards({
+                id: 'stu_rio',
+                studentCode: 'SD-2026-13',
+                name: 'Rio',
+                level: 'Friday Slot · 11:30 AM',
+                lessonDayOfWeek: 5,
+                schedule: '11:30 AM',
+                phone: ''
+            }, 12);
+
+            const amani = ensureStudentMonthlyCards({
+                id: 'stu_amani',
+                studentCode: 'SD-2026-14',
+                name: 'Amani',
+                level: 'Friday Slot · 3:00 PM',
+                lessonDayOfWeek: 5,
+                schedule: '3:00 PM',
+                phone: ''
+            }, 13);
+
+            // SATURDAY
+            const ethanSat = ensureStudentMonthlyCards({
+                id: 'stu_ethan_lim_sat',
+                studentCode: 'SD-2026-15',
+                name: 'Ethan Lim (Sat)',
+                level: '2x/Week (Tue & Sat) · B2B w/ Elvis Lim',
+                lessonDayOfWeek: 6,
+                schedule: '2:00 PM - 3:00 PM',
+                phone: '',
+                bioNotes: 'Siblings B2B with Elvis Lim (2x/week)',
+                linkedProfileGroup: 'ethan_lim'
+            }, 14);
+
+            const elvisSat = ensureStudentMonthlyCards({
+                id: 'stu_elvis_lim_sat',
+                studentCode: 'SD-2026-16',
+                name: 'Elvis Lim (Sat)',
+                level: '2x/Week (Tue & Sat) · B2B w/ Ethan Lim',
+                lessonDayOfWeek: 6,
+                schedule: '3:00 PM - 4:00 PM',
+                phone: '',
+                bioNotes: 'Siblings B2B with Ethan Lim (2x/week)',
+                linkedProfileGroup: 'elvis_lim'
+            }, 15);
+
+            const rafiqRizqin = ensureStudentMonthlyCards({
+                id: 'stu_rafiq_rizqin',
+                studentCode: 'SD-2026-17',
+                name: 'Rafiq Rizqin',
+                level: 'Saturday Slot · 5:30 PM - 6:30 PM',
+                lessonDayOfWeek: 6,
+                schedule: '5:30 PM - 6:30 PM',
+                phone: ''
+            }, 16);
+
+            const ehRen = ensureStudentMonthlyCards({
+                id: 'stu_eh_ren',
+                studentCode: 'SD-2026-18',
+                name: 'Eh Ren',
+                level: 'Saturday Slot · 7:00 PM - 8:00 PM',
+                lessonDayOfWeek: 6,
+                schedule: '7:00 PM - 8:00 PM',
+                phone: ''
+            }, 17);
+
+            const dylanLim = ensureStudentMonthlyCards({
+                id: 'stu_dylan_lim',
+                studentCode: 'SD-2026-19',
+                name: 'Dylan Lim',
+                level: 'Saturday Slot · 8:00 PM - 9:00 PM',
+                lessonDayOfWeek: 6,
+                schedule: '8:00 PM - 9:00 PM',
+                phone: ''
+            }, 18);
+
+            // SUNDAY
+            const jinEn = ensureStudentMonthlyCards({
+                id: 'stu_jin_en',
+                studentCode: 'SD-2026-20',
+                name: 'Jin En',
+                level: 'Sunday Slot · 11:00 AM',
+                lessonDayOfWeek: 0,
+                schedule: '11:00 AM',
+                phone: ''
+            }, 19);
+
+            const kisanth = ensureStudentMonthlyCards({
+                id: 'stu_kisanth',
+                studentCode: 'SD-2026-21',
+                name: 'Kisanth',
+                level: 'Sunday B2B w/ Kisheera',
+                lessonDayOfWeek: 0,
+                schedule: '1:30 PM',
+                phone: '',
+                bioNotes: 'Siblings B2B session with Kisheera'
+            }, 20);
+
+            const kisheera = ensureStudentMonthlyCards({
+                id: 'stu_kisheera',
+                studentCode: 'SD-2026-22',
+                name: 'Kisheera',
+                level: 'Sunday B2B w/ Kisanth',
+                lessonDayOfWeek: 0,
+                schedule: '2:30 PM',
+                phone: '',
+                bioNotes: 'Siblings B2B session with Kisanth'
+            }, 21);
+
+            const aina = ensureStudentMonthlyCards({
+                id: 'stu_aina',
+                studentCode: 'SD-2026-23',
+                name: 'Aina',
+                level: 'Sunday Slot · 5:30 PM',
+                lessonDayOfWeek: 0,
+                schedule: '5:30 PM',
+                phone: ''
+            }, 22);
+
+            const phyeYee = ensureStudentMonthlyCards({
+                id: 'stu_phye_yee',
+                studentCode: 'SD-2026-24',
+                name: 'Phye Yee',
+                level: 'Sunday Slot · 8:00 PM',
+                lessonDayOfWeek: 0,
+                schedule: '8:00 PM',
+                phone: ''
+            }, 23);
+
+            return sortStudentsByWeeklySchedule([
+                chean, ethanTue, elvisTue,
+                mrRoyPng, faizal, angJiaQian, neharikaRao, dassavanthRao,
+                mrsLilian, laoYiHeng, xuZheng,
+                aali, rio, amani,
+                ethanSat, elvisSat, rafiqRizqin, ehRen, dylanLim,
+                jinEn, kisanth, kisheera, aina, phyeYee
+            ]);
+        }
+
+        // ==========================================
+        // MAKE-UP BALANCE & CROSS-MONTH SETTLEMENT ENGINE
+        // ==========================================
+        function getLinkedSettlementsMap(student) {
+            const map = {};
+            if (!student || !student.monthlyCards) return map;
+
+            TERM_MONTHS.forEach(m => {
+                const card = student.monthlyCards[m.key];
+                if (!card || !Array.isArray(card.slots)) return;
+                card.slots.forEach((slot, idx) => {
+                    if (!slot || !slot.status || !slot.coversTarget) return;
+                    let creditedMins = 0;
+                    if (slot.status === 'replacement') {
+                        creditedMins = BASE_SESSION_MINUTES + (Number(slot.makeUpMinutes) || 0);
+                    } else if (slot.status === 'attended') {
+                        creditedMins = Number(slot.makeUpMinutes) || 0;
+                    }
+                    if (creditedMins > 0) {
+                        if (!map[slot.coversTarget]) map[slot.coversTarget] = [];
+                        map[slot.coversTarget].push({
+                            fromMonthKey: m.key,
+                            fromSlotIndex: idx,
+                            date: slot.date || '',
+                            minutes: creditedMins
+                        });
+                    }
+                });
+            });
+            return map;
+        }
+
+        function analyzeMonthCard(student, monthKey) {
+            const card = student?.monthlyCards?.[monthKey] || createEmptyMonthlyCard(monthKey, student?.lessonDayOfWeek);
+            const settlementsMap = getLinkedSettlementsMap(student);
+
+            let stampedCount = 0;
+            let attendedCount = 0;
+            let absentCount = 0;
+            let postponedCount = 0;
+            let replacementCount = 0;
+            let directReplacedCount = 0;
+            let crossMonthSettledCount = 0;
+
+            let owedMinutes = 0;
+            let settledMinutes = 0;
+            let unlinkedCreditMinutes = 0;
+            const openMissedLabels = [];
+
+            card.slots.forEach((slot, idx) => {
+                if (!slot || !slot.status) return;
+                stampedCount++;
+
+                const targetKey = `${monthKey}:${idx}`;
+                const linkedEntries = settlementsMap[targetKey] || [];
+                const linkedMinutes = linkedEntries.reduce((sum, e) => sum + e.minutes, 0);
+
+                if (slot.status === 'attended') {
+                    attendedCount++;
+                    const extra = Number(slot.makeUpMinutes) || 0;
+                    if (extra > 0 && !slot.coversTarget) {
+                        unlinkedCreditMinutes += extra;
+                    }
+                } else if (slot.status === 'replacement') {
+                    replacementCount++;
+                    const totalRep = BASE_SESSION_MINUTES + (Number(slot.makeUpMinutes) || 0);
+                    if (!slot.coversTarget) {
+                        unlinkedCreditMinutes += totalRep;
+                    }
+                } else if (slot.status === 'absent' || slot.status === 'postponed') {
+                    if (slot.status === 'absent') absentCount++;
+                    else postponedCount++;
+
+                    owedMinutes += BASE_SESSION_MINUTES;
+
+                    if (slot.replacedOnDate) {
+                        directReplacedCount++;
+                        settledMinutes += BASE_SESSION_MINUTES;
+                    } else if (linkedMinutes >= BASE_SESSION_MINUTES) {
+                        crossMonthSettledCount++;
+                        settledMinutes += BASE_SESSION_MINUTES;
+                    } else {
+                        settledMinutes += linkedMinutes;
+                        const remainForSlot = Math.max(0, BASE_SESSION_MINUTES - linkedMinutes);
+                        const labelPrefix = slot.status === 'absent' ? 'Absent' : 'Postponed';
+                        openMissedLabels.push(`${labelPrefix} · Wk ${idx + 1}${linkedMinutes > 0 ? ` (${formatMinutesShort(remainForSlot)} left)` : ''}`);
+                    }
+                }
+            });
+
+            const remainingMinutes = Math.max(0, owedMinutes - settledMinutes - unlinkedCreditMinutes);
+            const fullySettledMissed = (absentCount + postponedCount) > 0 && remainingMinutes === 0;
+            const effectiveCompleted = attendedCount + replacementCount + directReplacedCount + crossMonthSettledCount;
+
+            return {
+                monthKey,
+                stampedCount,
+                attendedCount,
+                absentCount,
+                postponedCount,
+                replacementCount,
+                directReplacedCount,
+                crossMonthSettledCount,
+                owedMinutes,
+                settledMinutes,
+                unlinkedCreditMinutes,
+                remainingMinutes,
+                fullySettledMissed,
+                effectiveCompleted,
+                openMissedLabels
+            };
+        }
+
+        function analyzeTermBalance(student) {
+            let totalOwed = 0;
+            let totalCredited = 0;
+            const openSessions = [];
+
+            const settlementsMap = getLinkedSettlementsMap(student);
+
+            TERM_MONTHS.forEach(m => {
+                const card = student?.monthlyCards?.[m.key];
+                if (!card || !Array.isArray(card.slots)) return;
+
+                card.slots.forEach((slot, idx) => {
+                    if (!slot || !slot.status) return;
+                    const targetKey = `${m.key}:${idx}`;
+                    const linkedEntries = settlementsMap[targetKey] || [];
+                    const linkedMinutes = linkedEntries.reduce((sum, e) => sum + e.minutes, 0);
+
+                    if (slot.status === 'absent' || slot.status === 'postponed') {
+                        totalOwed += BASE_SESSION_MINUTES;
+                        if (slot.replacedOnDate) {
+                            totalCredited += BASE_SESSION_MINUTES;
+                        } else if (linkedMinutes < BASE_SESSION_MINUTES) {
+                            openSessions.push({
+                                key: targetKey,
+                                monthKey: m.key,
+                                monthShort: m.shortLabel,
+                                slotIndex: idx,
+                                status: slot.status,
+                                date: slot.date,
+                                remaining: BASE_SESSION_MINUTES - linkedMinutes
+                            });
+                        }
+                    } else if (slot.status === 'replacement') {
+                        totalCredited += BASE_SESSION_MINUTES + (Number(slot.makeUpMinutes) || 0);
+                    } else if (slot.status === 'attended') {
+                        totalCredited += Number(slot.makeUpMinutes) || 0;
+                    }
+                });
+            });
+
+            const netRemaining = Math.max(0, totalOwed - totalCredited);
+            return {
+                totalOwed,
+                totalCredited,
+                netRemaining,
+                openSessions
+            };
+        }
+
+        // ==========================================
+        // FORMATTING, AVATAR & PHOTO COMPRESSION HELPERS
+        // ==========================================
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatMinutesShort(mins) {
+            const m = Math.max(0, Math.round(Number(mins) || 0));
+            if (m === 0) return '0m';
+            const hrs = Math.floor(m / 60);
+            const rem = m % 60;
+            if (hrs > 0 && rem > 0) return `${hrs}h ${rem}m`;
+            if (hrs > 0) return `${hrs}h`;
+            return `${rem}m`;
+        }
+
+        function formatStampDate(isoDate) {
+            if (!isoDate) return 'TBD';
+            const parts = String(isoDate).split('-');
+            if (parts.length !== 3) return isoDate;
+            const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+            const mIdx = parseInt(parts[1], 10) - 1;
+            const mName = months[mIdx] || parts[1];
+            return `${parts[2]} ${mName} ${parts[0]}`;
+        }
+
+        function formatClockTime() {
+            const now = new Date();
+            return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function getTodayIsoDate() {
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        function getStudentInitials(name) {
+            const cleaned = (name || 'SD').replace(/\([^)]*\)/g, '').trim();
+            const words = cleaned.split(/\s+/).filter(Boolean);
+            if (words.length === 0) return 'SD';
+            if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+            return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+        }
+
+        function renderStudentAvatarHtml(student, sizeClass = 'w-9 h-9 text-xs') {
+            const initials = escapeHtml(getStudentInitials(student?.name));
+            if (student && student.photoDataUrl) {
+                return `
+                    <div class="${sizeClass} rounded-full border-2 border-black overflow-hidden bg-neutral-100 shrink-0 shadow-xs">
+                        <img src="${student.photoDataUrl}" alt="${escapeHtml(student.name)}" class="w-full h-full object-cover">
+                    </div>
+                `;
+            }
+            return `
+                <div class="${sizeClass} rounded-full border-2 border-black bg-brandBlue text-white font-display font-extrabold flex items-center justify-center shrink-0 shadow-xs">
+                    ${initials}
+                </div>
+            `;
+        }
+
+        function compressImageFileToDataUrl(file, maxSize = 180, quality = 0.78) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const side = Math.min(img.width, img.height);
+                        const sx = (img.width - side) / 2;
+                        const sy = (img.height - side) / 2;
+                        canvas.width = maxSize;
+                        canvas.height = maxSize;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, sx, sy, side, side, 0, 0, maxSize, maxSize);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    };
+                    img.onerror = () => reject(new Error('Invalid image file'));
+                    img.src = e.target.result;
+                };
+                reader.onerror = () => reject(new Error('File read error'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function showToast(message) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const el = document.createElement('div');
+            el.className = 'pointer-events-auto px-4 py-2.5 rounded-xl bg-black text-white border-2 border-white/20 shadow-lg text-xs font-display font-bold flex items-center gap-2 transition-all duration-300';
+            el.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span><span>${escapeHtml(message)}</span>`;
+            container.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(8px)';
+                setTimeout(() => el.remove(), 260);
+            }, 2600);
+        }
+
+        // ==========================================
+        // LINKED PROFILE SYNC & MANUAL SAVE
+        // ==========================================
+        function syncLinkedProfileGroup(sourceStudent) {
+            if (!sourceStudent || !sourceStudent.linkedProfileGroup) return [];
+            const updatedPeers = [];
+            state.students.forEach(peer => {
+                if (peer.id !== sourceStudent.id && peer.linkedProfileGroup === sourceStudent.linkedProfileGroup) {
+                    peer.photoDataUrl = sourceStudent.photoDataUrl || '';
+                    peer.photoCleared = Boolean(sourceStudent.photoCleared);
+                    peer.ageGroup = sourceStudent.ageGroup || '';
+                    peer.phone = sourceStudent.phone || '';
+                    peer.bioNotes = sourceStudent.bioNotes || '';
+                    peer.updatedAt = Date.now();
+                    updatedPeers.push(peer);
+                }
+            });
+            return updatedPeers;
+        }
+
+        function markChanged(student = null) {
+            if (student) {
+                student.updatedAt = Date.now();
+                syncStudentToCloud(student);
+            } else {
+                saveToLocalCache();
+            }
+            state.hasUnsavedChanges = false;
+            state.lastSavedTimeStr = formatClockTime();
+            updateSaveButtonsUI();
+        }
+
+        function updateSaveButtonsUI() {
+            const headerBtn = document.getElementById('headerSaveBtn');
+            if (headerBtn) {
+                headerBtn.innerHTML = state.lastSavedTimeStr
+                    ? `<span>✓ Saved</span><span class="hidden xl:inline text-[10px] font-mono opacity-85">(${state.lastSavedTimeStr})</span>`
+                    : `<span>✓ Save</span>`;
+            }
+        }
+
+        async function manualSaveAllChanges(fromBackupModal = false) {
+            const nowTs = Date.now();
+            state.students.forEach(s => {
+                if (!s.updatedAt) s.updatedAt = nowTs;
+            });
+            saveToLocalCache();
+
+            let syncedCount = 0;
+            if (isCloudReady && currentUser && firestoreApi) {
+                updateCloudBadge('syncing', 'Saving All...');
+                const results = await Promise.all(state.students.map(s => syncStudentToCloud(s)));
+                syncedCount = results.filter(Boolean).length;
+            }
+
+            state.hasUnsavedChanges = false;
+            state.lastSavedTimeStr = formatClockTime();
+            updateSaveButtonsUI();
+            playStampSound('success');
+
+            if (fromBackupModal) {
+                updateBackupSummaryBanner();
+            }
+
+            const summaryMsg = syncedCount > 0
+                ? `Locked & synced all ${syncedCount} students to Cloud (${state.lastSavedTimeStr})!`
+                : `Saved all ${state.students.length} students locally (${state.lastSavedTimeStr})!`;
+            showToast(summaryMsg);
+        }
+
+        // ==========================================
+        // NAVIGATION & FILTER HANDLERS
+        // ==========================================
+        function getActiveStudent() {
+            return state.students.find(s => s.id === state.activeStudentId) || state.students[0] || null;
+        }
+
+        function selectStudent(studentId) {
+            state.activeStudentId = studentId;
+            state.activeMonthKey = null;
+            renderAll();
+        }
+
+        function openMonthCard(monthKey) {
+            state.activeMonthKey = monthKey;
+            renderWorkspace();
+        }
+
+        function backToMonthColumns() {
+            state.activeMonthKey = null;
+            renderWorkspace();
+        }
+
+        function handleSearchInput(val) {
+            state.searchQuery = val || '';
+            renderStudentList();
+        }
+
+        function setDayFilter(dayVal) {
+            state.dayFilter = dayVal;
+            renderDayFilterBar();
+            renderStudentList();
+        }
+
+        function setStampMode(mode) {
+            state.activeStampMode = mode;
+            renderWorkspace();
+        }
+
+        // ==========================================
+        // RENDER: LEFT ROSTER SIDEBAR
+        // ==========================================
+        function renderDayFilterBar() {
+            const bar = document.getElementById('dayFilterBar');
+            if (!bar) return;
+            bar.innerHTML = WEEKDAY_ORDER.map(day => {
+                const isActive = state.dayFilter === day.value;
+                return `
+                    <button type="button" onclick="setDayFilter('${day.value}')"
+                            class="px-2 py-1 rounded-lg text-[10px] font-mono font-bold border transition cursor-pointer ${
+                                isActive
+                                    ? 'bg-black text-white border-black'
+                                    : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-black'
+                            }">
+                        ${day.short}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function renderStudentList() {
+            const container = document.getElementById('studentListContainer');
+            const badge = document.getElementById('studentCountBadge');
+            if (!container) return;
+
+            const q = state.searchQuery.trim().toLowerCase();
+            const filtered = state.students.filter(stu => {
+                if (state.dayFilter !== 'ALL' && String(stu.lessonDayOfWeek) !== state.dayFilter) {
+                    return false;
+                }
+                if (!q) return true;
+                const dayMeta = getWeekdayMeta(stu.lessonDayOfWeek);
+                const hay = `${stu.name} ${stu.level} ${stu.schedule} ${dayMeta.full} ${dayMeta.short} ${stu.studentCode || ''}`.toLowerCase();
+                return hay.includes(q);
+            });
+
+            if (badge) {
+                badge.textContent = `${filtered.length} / ${state.students.length}`;
+            }
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="p-4 rounded-2xl border-2 border-dashed border-neutral-200 text-center text-xs text-neutral-500">
+                        No students match this filter.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(stu => {
+                const isActive = stu.id === state.activeStudentId;
+                const dayMeta = getWeekdayMeta(stu.lessonDayOfWeek);
+                const termBal = analyzeTermBalance(stu);
+                return `
+                    <button type="button" onclick="selectStudent('${stu.id}')"
+                            class="w-full text-left p-2.5 rounded-2xl border-2 transition flex items-center gap-2.5 cursor-pointer ${
+                                isActive
+                                    ? 'bg-brandBlue/5 border-brandBlue shadow-[3px_3px_0px_#0000FF]'
+                                    : 'bg-white border-neutral-200 hover:border-black'
+                            }">
+                        ${renderStudentAvatarHtml(stu, 'w-9 h-9 text-xs')}
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between gap-1">
+                                <span class="font-display font-bold text-xs sm:text-sm text-black truncate">${escapeHtml(stu.name)}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-neutral-100 border border-neutral-300 text-[9px] font-mono font-bold text-neutral-700 shrink-0">${dayMeta.short}</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-1 mt-0.5">
+                                <span class="text-[11px] font-mono text-neutral-500 truncate">${escapeHtml(stu.schedule || 'Flexible')}</span>
+                                ${termBal.netRemaining > 0
+                                    ? `<span class="px-1.5 py-0.5 rounded-full bg-amber-100 border border-amber-400 text-[9px] font-mono font-bold text-amber-800 shrink-0">${formatMinutesShort(termBal.netRemaining)} due</span>`
+                                    : ''
+                                }
+                            </div>
+                        </div>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        // ==========================================
+        // RENDER: MAIN WORKSPACE (STEP 2 & STEP 3)
+        // ==========================================
+        function renderWorkspace() {
+            const container = document.getElementById('mainCardWorkspace');
+            if (!container) return;
+
+            const student = getActiveStudent();
+            if (!student) {
+                container.innerHTML = `
+                    <div class="bg-white border-2 border-black rounded-3xl p-8 text-center shadow-[6px_6px_0px_#000000]">
+                        <p class="font-display font-extrabold text-lg text-black">No Student Selected</p>
+                        <p class="text-xs text-neutral-500 mt-1">Click "+ New Student" to create your first digital attendance card.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (!state.activeMonthKey) {
+                renderMonthColumnsView(container, student);
+            } else {
+                renderMonthlyStampCardView(container, student, state.activeMonthKey);
+            }
+        }
+
+        function renderMonthColumnsView(container, student) {
+            const dayMeta = getWeekdayMeta(student.lessonDayOfWeek);
+            const termBal = analyzeTermBalance(student);
+            const settlementsMap = getLinkedSettlementsMap(student);
+            const cleanWaDigits = (student.phone || '').replace(/[^0-9]/g, '');
+
+            const monthCardsHtml = TERM_MONTHS.map(m => {
+                const card = student.monthlyCards[m.key];
+                const stats = analyzeMonthCard(student, m.key);
+
+                let statusBadgeHtml = '';
+                if (stats.stampedCount === 0) {
+                    statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full bg-neutral-100 border border-neutral-300 text-[11px] font-mono font-bold text-neutral-600">Upcoming · 0/4</span>`;
+                } else if (stats.remainingMinutes > 0) {
+                    statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full bg-amber-100 border border-amber-400 text-[11px] font-mono font-bold text-amber-900">${stats.stampedCount}/4 · ${formatMinutesShort(stats.remainingMinutes)} Make-Up Due</span>`;
+                } else if (stats.fullySettledMissed && stats.stampedCount === 4) {
+                    statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full bg-emerald-100 border border-emerald-500 text-[11px] font-mono font-bold text-emerald-800">4/4 Settled · Replaced</span>`;
+                } else if (stats.fullySettledMissed) {
+                    statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full bg-emerald-100 border border-emerald-500 text-[11px] font-mono font-bold text-emerald-800">${stats.stampedCount}/4 Settled · Replaced</span>`;
+                } else if (stats.stampedCount === 4) {
+                    statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full bg-brandBlue/10 border border-brandBlue text-[11px] font-mono font-bold text-brandBlue">4/4 Complete</span>`;
+                } else {
+                    statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full bg-blue-50 border border-blue-300 text-[11px] font-mono font-bold text-blue-800">${stats.stampedCount}/4 In Progress</span>`;
+                }
+
+                const pipsHtml = card.slots.map((slot, idx) => {
+                    const targetKey = `${m.key}:${idx}`;
+                    const linkedMins = (settlementsMap[targetKey] || []).reduce((s, e) => s + e.minutes, 0);
+                    const isSettledMissed = (slot.status === 'absent' || slot.status === 'postponed') && (Boolean(slot.replacedOnDate) || linkedMins >= BASE_SESSION_MINUTES);
+
+                    let pipBg = 'bg-neutral-100 border-neutral-300 text-neutral-400';
+                    let pipText = `W${idx + 1}`;
+                    if (slot.status === 'attended') pipBg = 'bg-brandBlue border-brandBlue text-white';
+                    else if (slot.status === 'replacement') pipBg = 'bg-emerald-600 border-emerald-600 text-white';
+                    else if (slot.status === 'absent') pipBg = 'bg-red-600 border-red-600 text-white';
+                    else if (slot.status === 'postponed') pipBg = 'bg-amber-500 border-amber-500 text-white';
+
+                    return `
+                        <div class="relative flex-1 h-9 rounded-xl border-2 ${pipBg} flex items-center justify-center font-mono font-bold text-[11px]">
+                            ${pipText}
+                            ${isSettledMissed ? `<span title="Replaced / Settled" class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-emerald-500 border border-white text-white text-[9px] flex items-center justify-center font-bold shadow-xs">✓</span>` : ''}
+                            ${slot.makeUpMinutes > 0 ? `<span title="+${slot.makeUpMinutes}m Make-Up" class="absolute -bottom-1.5 -right-1 px-1 rounded bg-emerald-600 text-white text-[8px] font-mono font-bold">+${slot.makeUpMinutes === 60 ? '1h' : '30m'}</span>` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div onclick="openMonthCard('${m.key}')"
+                         class="group bg-white border-2 border-black rounded-3xl p-5 shadow-[5px_5px_0px_#000000] hover:shadow-[7px_7px_0px_#0000FF] hover:-translate-y-0.5 transition cursor-pointer flex flex-col justify-between gap-4">
+                        <div>
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10px] font-mono font-bold uppercase tracking-widest text-neutral-400">2026 TERM</span>
+                                <span class="text-xs font-mono font-bold text-brandBlue group-hover:translate-x-0.5 transition">Open Card →</span>
+                            </div>
+                            <h3 class="font-display font-extrabold text-xl text-black mt-1">${m.monthOnly}</h3>
+                            <p class="text-xs font-mono text-neutral-500">4-Slot Attendance Card</p>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            ${pipsHtml}
+                        </div>
+
+                        <div class="pt-3 border-t border-neutral-100 flex items-center justify-between gap-2">
+                            ${statusBadgeHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <!-- Official Souka Drums Student ID Card Banner -->
+                    <div class="bg-white border-2 border-black rounded-3xl p-5 sm:p-6 shadow-[6px_6px_0px_#000000]">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                            <div class="flex items-start gap-4">
+                                ${renderStudentAvatarHtml(student, 'w-16 h-16 sm:w-20 sm:h-20 text-xl')}
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="px-2 py-0.5 rounded bg-black text-white text-[10px] font-mono font-bold uppercase tracking-wider">SOUKA ID</span>
+                                        <span class="text-xs font-mono font-bold text-brandBlue">${escapeHtml(student.studentCode || 'SD-2026')}</span>
+                                        <span class="px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-300 text-[10px] font-mono font-bold text-neutral-700">${dayMeta.full} · ${escapeHtml(student.schedule || 'TBD')}</span>
+                                    </div>
+                                    <h2 class="font-display font-extrabold text-2xl sm:text-3xl text-black tracking-tight mt-1.5">${escapeHtml(student.name)}</h2>
+                                    <p class="text-xs sm:text-sm text-neutral-600 font-medium mt-0.5">${escapeHtml(student.level || 'Drums Student')}</p>
+                                    <div class="flex flex-wrap items-center gap-2 mt-2 text-[11px] font-mono text-neutral-500">
+                                        ${student.ageGroup ? `<span class="px-2 py-0.5 rounded bg-neutral-100 text-neutral-700">Age: ${escapeHtml(student.ageGroup)}</span>` : ''}
+                                        ${student.bioNotes ? `<span class="px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">${escapeHtml(student.bioNotes)}</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                                ${cleanWaDigits ? `
+                                    <a href="https://wa.me/${cleanWaDigits}" target="_blank" rel="noopener"
+                                       class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-display font-bold transition">
+                                        WA Parent
+                                    </a>
+                                ` : ''}
+                                <button type="button" onclick="manualSaveAllChanges()"
+                                        class="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-800 hover:text-white border border-emerald-400 text-xs font-display font-bold transition cursor-pointer">
+                                    ✓ Save Card
+                                </button>
+                                <button type="button" onclick="openStudentModal('${student.id}')"
+                                        class="px-3.5 py-2 rounded-xl border-2 border-black bg-white hover:bg-black hover:text-white text-xs font-display font-bold transition cursor-pointer">
+                                    Edit Student ID
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Cross-Month Term Make-Up Balance (Oct–Dec 2026) -->
+                        <div class="mt-5 pt-4 border-t-2 border-dashed border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <p class="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-500">Cross-Month Make-Up Balance (Oct – Dec 2026)</p>
+                                <p class="text-xs text-neutral-600 mt-0.5">
+                                    Owed: <strong class="font-mono text-black">${formatMinutesShort(termBal.totalOwed)}</strong> ·
+                                    Credited / Replaced: <strong class="font-mono text-emerald-700">${formatMinutesShort(termBal.totalCredited)}</strong>
+                                </p>
+                            </div>
+                            <div>
+                                ${termBal.netRemaining > 0
+                                    ? `<span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-100 border-2 border-amber-500 text-amber-900 font-mono font-extrabold text-xs">⏳ Make-Up Due: ${formatMinutesShort(termBal.netRemaining)} left</span>`
+                                    : `<span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-100 border-2 border-emerald-500 text-emerald-900 font-mono font-extrabold text-xs">✅ Make-Up Cleared: 0m left</span>`
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Month Columns (October, November, December 2026) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3 px-1">
+                            <h3 class="font-display font-extrabold text-sm uppercase tracking-wider text-neutral-600">Select Month Card (2026)</h3>
+                            <span class="text-xs font-mono text-neutral-400">Click any month to view or stamp attendance</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            ${monthCardsHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMonthlyStampCardView(container, student, monthKey) {
+            const monthMeta = getMonthMeta(monthKey);
+            const card = student.monthlyCards[monthKey];
+            const stats = analyzeMonthCard(student, monthKey);
+            const termBal = analyzeTermBalance(student);
+            const settlementsMap = getLinkedSettlementsMap(student);
+            const dayMeta = getWeekdayMeta(student.lessonDayOfWeek);
+
+            const inkModes = [
+                { id: 'attended', label: 'Attended', color: 'border-brandBlue text-brandBlue bg-blue-50', active: 'bg-brandBlue text-white border-brandBlue shadow-sm' },
+                { id: 'absent', label: 'Student Absent', color: 'border-red-500 text-red-600 bg-red-50', active: 'bg-red-600 text-white border-red-600 shadow-sm' },
+                { id: 'postponed', label: 'Studio Postponed', color: 'border-amber-500 text-amber-700 bg-amber-50', active: 'bg-amber-500 text-white border-amber-500 shadow-sm' },
+                { id: 'replacement', label: 'Replacement Class', color: 'border-emerald-600 text-emerald-700 bg-emerald-50', active: 'bg-emerald-600 text-white border-emerald-600 shadow-sm' }
+            ];
+
+            const inkButtonsHtml = inkModes.map(mode => {
+                const isSelected = state.activeStampMode === mode.id;
+                return `
+                    <button type="button" onclick="setStampMode('${mode.id}')"
+                            class="px-3 py-2 rounded-xl border-2 text-xs font-display font-bold transition cursor-pointer ${isSelected ? mode.active : mode.color}">
+                        ${mode.label}
+                    </button>
+                `;
+            }).join('');
+
+            const slotsHtml = card.slots.map((slot, idx) => {
+                const defaultDate = getSlotScheduledDate(monthKey, student.lessonDayOfWeek, idx);
+                const displayDate = formatStampDate(slot.date || defaultDate);
+                const targetKey = `${monthKey}:${idx}`;
+                const linkedEntries = settlementsMap[targetKey] || [];
+
+                if (!slot.status) {
+                    return `
+                        <button type="button" onclick="handleSlotClick(${idx})"
+                                class="group relative min-h-[235px] p-5 rounded-3xl border-2 border-dashed border-neutral-300 hover:border-brandBlue bg-neutral-50/70 hover:bg-blue-50/40 transition flex flex-col items-center justify-center text-center cursor-pointer">
+                            <span class="absolute top-3.5 left-4 text-[11px] font-mono font-bold text-neutral-400">WEEK ${idx + 1}</span>
+                            <div class="w-16 h-16 rounded-full border-2 border-dashed border-neutral-300 group-hover:border-brandBlue flex items-center justify-center text-neutral-400 group-hover:text-brandBlue font-mono text-xs font-bold transition">
+                                STAMP
+                            </div>
+                            <p class="mt-3 text-xs font-mono font-bold text-neutral-500 group-hover:text-brandBlue">${displayDate}</p>
+                            <p class="text-[10px] text-neutral-400 mt-0.5">Tap to apply ${state.activeStampMode} ink</p>
+                        </button>
+                    `;
+                }
+
+                // Primary stamp visual styling
+                let primaryStampHtml = '';
+                if (slot.status === 'replacement') {
+                    // Clean Horizontal Oval Replacement Stamp with date below
+                    primaryStampHtml = `
+                        <div class="stamp-pop oval-stamp-primary w-48 h-24 border-[3px] border-emerald-600 bg-emerald-50/60 text-emerald-700 flex flex-col items-center justify-center px-5 py-2 rotate-[-3deg] select-none">
+                            <span class="text-[8px] font-mono font-extrabold tracking-[0.22em] uppercase text-emerald-600/90 leading-none">SOUKA DRUMS</span>
+                            <span class="text-[17px] font-display font-extrabold tracking-tight text-emerald-700 leading-none mt-1">REPLACED</span>
+                            <div class="mt-1.5 pt-1 border-t border-emerald-600/35 w-28 text-center">
+                                <span class="text-[10px] font-mono font-extrabold tracking-wide text-emerald-900">${displayDate}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    let ringClass = 'border-brandBlue text-brandBlue bg-blue-50/30';
+                    let stampTitle = 'ATTENDED';
+                    let stampSub = 'SOUKA DRUMS';
+                    if (slot.status === 'absent') {
+                        ringClass = 'border-red-600 text-red-600 bg-red-50/30';
+                        stampTitle = 'ABSENT';
+                        stampSub = 'MAKE-UP OWED';
+                    } else if (slot.status === 'postponed') {
+                        ringClass = 'border-amber-600 text-amber-700 bg-amber-50/30';
+                        stampTitle = 'POSTPONED';
+                        stampSub = 'STUDIO RESCHED';
+                    }
+
+                    primaryStampHtml = `
+                        <div class="stamp-pop w-32 h-32 rounded-full border-[4px] ${ringClass} flex flex-col items-center justify-center p-2 rotate-[-4deg] select-none">
+                            <span class="text-[8px] font-mono font-extrabold tracking-widest uppercase opacity-80">${stampSub}</span>
+                            <span class="text-sm font-display font-extrabold tracking-tight mt-0.5">${stampTitle}</span>
+                            <span class="text-[10px] font-mono font-extrabold mt-1 px-1.5 py-0.5 rounded bg-white/85">${displayDate}</span>
+                        </div>
+                    `;
+                }
+
+                // Clean Horizontal Oval Passport Double Stamp for +30m / +1h make-up
+                const extraMakeUpStampHtml = slot.makeUpMinutes > 0 ? `
+                    <div class="stamp-pop oval-stamp-overlay absolute -bottom-4 -right-3 sm:-right-6 w-40 h-[72px] border-[2.5px] border-emerald-600 bg-white/95 text-emerald-700 flex flex-col items-center justify-center px-3 py-1 rotate-[-6deg] pointer-events-none">
+                        <span class="text-[7px] font-mono font-extrabold tracking-[0.2em] uppercase text-emerald-600/90 leading-none">MAKE-UP PASS</span>
+                        <span class="text-[13px] font-display font-extrabold tracking-tight text-emerald-700 leading-none mt-1">+${slot.makeUpMinutes === 60 ? '1H' : '30M'} EXTRA</span>
+                        <div class="mt-1 pt-0.5 border-t border-emerald-600/30 w-24 text-center">
+                            <span class="text-[9px] font-mono font-extrabold text-emerald-900">${displayDate}</span>
+                        </div>
+                    </div>
+                ` : '';
+
+                // Clean Horizontal Oval Layered Green Replacement Stamp onto Absent / Postponed with replacement date clearly below
+                const directReplacedStampHtml = (slot.status === 'absent' || slot.status === 'postponed') && slot.replacedOnDate ? `
+                    <div class="stamp-pop oval-stamp-overlay absolute -bottom-4 -right-3 sm:-right-6 w-40 h-[72px] border-[2.5px] border-emerald-600 bg-white/95 text-emerald-700 flex flex-col items-center justify-center px-3 py-1 rotate-[-6deg] pointer-events-none">
+                        <span class="text-[7px] font-mono font-extrabold tracking-[0.2em] uppercase text-emerald-600/90 leading-none">SOUKA PASS</span>
+                        <span class="text-[13px] font-display font-extrabold tracking-tight text-emerald-700 leading-none mt-1">REPLACED</span>
+                        <div class="mt-1 pt-0.5 border-t border-emerald-600/30 w-24 text-center">
+                            <span class="text-[9px] font-mono font-extrabold text-emerald-900">${formatStampDate(slot.replacedOnDate)}</span>
+                        </div>
+                    </div>
+                ` : '';
+
+                // Linked cross-month settlement badge on original missed slot
+                const crossMonthBadgeHtml = linkedEntries.length > 0 && !slot.replacedOnDate ? `
+                    <div class="mt-2 px-2.5 py-1 rounded-full bg-emerald-100 border border-emerald-500 text-emerald-800 text-[10px] font-mono font-bold">
+                        ✓ Replaced on ${formatStampDate(linkedEntries[0].date)}
+                    </div>
+                ` : '';
+
+                // Badge showing which missed slot this replacement covers
+                let coversBadgeHtml = '';
+                if (slot.coversTarget) {
+                    const [cMonth, cIdx] = slot.coversTarget.split(':');
+                    const cMeta = getMonthMeta(cMonth);
+                    coversBadgeHtml = `
+                        <div class="mt-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-400 text-emerald-800 text-[10px] font-mono font-bold">
+                            ↳ Covers ${cMeta.shortLabel} Wk ${Number(cIdx) + 1}
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div onclick="handleSlotClick(${idx})"
+                         class="relative min-h-[235px] p-5 rounded-3xl border-2 border-black bg-white shadow-[4px_4px_0px_#000000] hover:shadow-[6px_6px_0px_#0000FF] transition flex flex-col items-center justify-between text-center cursor-pointer">
+                        <div class="w-full flex items-center justify-between text-[11px] font-mono font-bold text-neutral-400">
+                            <span>WEEK ${idx + 1}</span>
+                            <span class="text-[10px] text-neutral-400">Edit ✎</span>
+                        </div>
+
+                        <!-- Stamp Stage -->
+                        <div class="relative my-4 flex items-center justify-center">
+                            ${primaryStampHtml}
+                            ${extraMakeUpStampHtml}
+                            ${directReplacedStampHtml}
+                        </div>
+
+                        <div class="w-full flex flex-col items-center mt-2">
+                            ${crossMonthBadgeHtml}
+                            ${coversBadgeHtml}
+                            ${slot.note ? `<p class="mt-1.5 text-[11px] text-neutral-600 line-clamp-2 leading-snug">${escapeHtml(slot.note)}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="bg-white border-2 border-black rounded-3xl p-5 sm:p-6 shadow-[6px_6px_0px_#000000] space-y-5">
+                    <!-- Top Card Navigation & Actions -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b-2 border-neutral-100">
+                        <div class="flex items-center gap-3">
+                            <button type="button" onclick="backToMonthColumns()"
+                                    class="px-3 py-2 rounded-xl border-2 border-black bg-neutral-50 hover:bg-black hover:text-white text-xs font-display font-bold transition cursor-pointer shrink-0">
+                                ← Months
+                            </button>
+                            ${renderStudentAvatarHtml(student, 'w-11 h-11 text-sm')}
+                            <div class="min-w-0">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h2 class="font-display font-extrabold text-lg sm:text-xl text-black truncate">${escapeHtml(student.name)}</h2>
+                                    <span class="px-2 py-0.5 rounded bg-brandBlue text-white text-[10px] font-mono font-bold uppercase">${monthMeta.label}</span>
+                                </div>
+                                <p class="text-xs font-mono text-neutral-500">${dayMeta.full} · ${escapeHtml(student.schedule || 'Flexible')}</p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2 shrink-0">
+                            <button type="button" onclick="manualSaveAllChanges()"
+                                    class="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-800 hover:text-white border border-emerald-400 text-xs font-display font-bold transition cursor-pointer">
+                                ✓ Save
+                            </button>
+                            <button type="button" onclick="openWhatsAppModal()"
+                                    class="px-3.5 py-2 rounded-xl bg-black hover:bg-brandBlue text-white text-xs font-display font-bold transition cursor-pointer">
+                                Share WA Summary
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Rubber Stamp Ink Selector -->
+                    <div class="p-3.5 rounded-2xl bg-neutral-50 border-2 border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <p class="text-[11px] font-mono font-bold uppercase text-neutral-500">Active Stamp Ink</p>
+                            <p class="text-[11px] text-neutral-500 mt-0.5">Tip: Select <strong>Replacement Class</strong> and tap an Absent/Postponed slot to layer a clean green oval seal directly on top.</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            ${inkButtonsHtml}
+                        </div>
+                    </div>
+
+                    <!-- 4-Slot Weekly Stamp Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        ${slotsHtml}
+                    </div>
+
+                    <!-- Monthly & Term Make-Up Summary Footer -->
+                    <div class="p-4 rounded-2xl border-2 border-black bg-neutral-50 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div class="space-y-1">
+                            <p class="text-xs font-mono font-bold uppercase text-neutral-500">${monthMeta.label} Attendance Summary</p>
+                            <p class="text-xs sm:text-sm font-medium text-neutral-800">
+                                Stamped: <strong class="font-mono">${stats.stampedCount}/4</strong> ·
+                                Attended: <strong class="font-mono text-brandBlue">${stats.attendedCount}</strong> ·
+                                Absent: <strong class="font-mono text-red-600">${stats.absentCount}</strong> ·
+                                Postponed: <strong class="font-mono text-amber-700">${stats.postponedCount}</strong>
+                            </p>
+                            ${stats.openMissedLabels.length > 0
+                                ? `<p class="text-[11px] font-mono text-amber-800">Open Make-Up: ${escapeHtml(stats.openMissedLabels.join(', '))}</p>`
+                                : `<p class="text-[11px] font-mono text-emerald-700">All sessions for ${monthMeta.monthOnly} are clear or settled.</p>`
+                            }
+                        </div>
+                        <div class="flex flex-col items-start md:items-end gap-1 shrink-0">
+                            ${stats.remainingMinutes > 0
+                                ? `<span class="px-3.5 py-1.5 rounded-xl bg-amber-100 border-2 border-amber-500 text-amber-900 font-mono font-extrabold text-xs">Month Make-Up Due: ${formatMinutesShort(stats.remainingMinutes)} left</span>`
+                                : `<span class="px-3.5 py-1.5 rounded-xl bg-emerald-100 border-2 border-emerald-500 text-emerald-900 font-mono font-extrabold text-xs">✅ Month Clear: 0m left</span>`
+                            }
+                            <span class="text-[11px] font-mono text-neutral-500">Oct–Dec Overall Balance: <strong>${formatMinutesShort(termBal.netRemaining)} left</strong></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAll() {
+            renderDayFilterBar();
+            renderStudentList();
+            renderWorkspace();
+            updateSaveButtonsUI();
+        }
+
+        // ==========================================
+        // SLOT CLICK & MODAL HANDLERS
+        // ==========================================
+        function handleSlotClick(slotIndex) {
+            const student = getActiveStudent();
+            if (!student || !state.activeMonthKey) return;
+            const card = student.monthlyCards[state.activeMonthKey];
+            const slot = card.slots[slotIndex];
+
+            // Empty slot: immediately apply active ink stamp
+            if (!slot.status) {
+                slot.status = state.activeStampMode;
+                slot.date = slot.date || getSlotScheduledDate(state.activeMonthKey, student.lessonDayOfWeek, slotIndex);
+                slot.makeUpMinutes = 0;
+                slot.replacedOnDate = '';
+                playStampSound('stamp');
+                markChanged(student);
+                renderAll();
+                showToast(`Stamped Week ${slotIndex + 1} (${state.activeStampMode})`);
+                return;
+            }
+
+            // Direct green oval replacement layering on top of Absent / Postponed slot
+            if (state.activeStampMode === 'replacement' && (slot.status === 'absent' || slot.status === 'postponed') && !slot.replacedOnDate) {
+                slot.replacedOnDate = getTodayIsoDate();
+                playStampSound('success');
+                markChanged(student);
+                renderAll();
+                showToast(`Layered Green Oval Seal on Week ${slotIndex + 1}! Tap again to change date.`);
+                return;
+            }
+
+            // Otherwise open Slot Edit Modal
+            openSlotModal(slotIndex);
+        }
+
+        function openSlotModal(slotIndex) {
+            const student = getActiveStudent();
+            if (!student || !state.activeMonthKey) return;
+            const monthMeta = getMonthMeta(state.activeMonthKey);
+            const slot = student.monthlyCards[state.activeMonthKey].slots[slotIndex];
+            state.editingSlotIndex = slotIndex;
+
+            const modal = document.getElementById('slotModal');
+            const titleEl = document.getElementById('slotModalTitle');
+            const subEl = document.getElementById('slotModalSubtitle');
+            const statusSel = document.getElementById('slotStatusSelect');
+            const dateInput = document.getElementById('slotDateInput');
+            const makeUpSel = document.getElementById('slotMakeUpSelect');
+            const noteInput = document.getElementById('slotNoteInput');
+            const overlayCb = document.getElementById('slotReplacedOverlayCheckbox');
+            const replacedDateInput = document.getElementById('slotReplacedDateInput');
+            const coversSel = document.getElementById('slotCoversSelect');
+
+            if (!modal) return;
+            if (titleEl) titleEl.textContent = `Week ${slotIndex + 1} · ${monthMeta.label}`;
+            if (subEl) subEl.textContent = `${student.name} (${getWeekdayMeta(student.lessonDayOfWeek).full})`;
+            if (statusSel) statusSel.value = slot.status || 'attended';
+            if (dateInput) dateInput.value = slot.date || getSlotScheduledDate(state.activeMonthKey, student.lessonDayOfWeek, slotIndex);
+            if (makeUpSel) makeUpSel.value = String(slot.makeUpMinutes || 0);
+            if (noteInput) noteInput.value = slot.note || '';
+            if (overlayCb) overlayCb.checked = Boolean(slot.replacedOnDate);
+            if (replacedDateInput) replacedDateInput.value = slot.replacedOnDate || getTodayIsoDate();
+
+            if (coversSel) {
+                const options = [`<option value="">Auto-credit to overall balance</option>`];
+                TERM_MONTHS.forEach(m => {
+                    const mCard = student.monthlyCards[m.key];
+                    mCard.slots.forEach((s, i) => {
+                        if (m.key === state.activeMonthKey && i === slotIndex) return;
+                        if (s.status === 'absent' || s.status === 'postponed') {
+                            const key = `${m.key}:${i}`;
+                            const selected = slot.coversTarget === key ? 'selected' : '';
+                            options.push(`<option value="${key}" ${selected}>${m.shortLabel} · Wk ${i + 1} (${s.status === 'absent' ? 'Absent' : 'Postponed'} · ${formatStampDate(s.date)})</option>`);
+                        }
+                    });
+                });
+                coversSel.innerHTML = options.join('');
+            }
+
+            updateSlotModalVisibility();
+            modal.classList.remove('hidden');
+        }
+
+        function updateSlotModalVisibility() {
+            const status = document.getElementById('slotStatusSelect')?.value || 'attended';
+            const makeUpMins = Number(document.getElementById('slotMakeUpSelect')?.value) || 0;
+            const isOverlayChecked = Boolean(document.getElementById('slotReplacedOverlayCheckbox')?.checked);
+
+            const directLayerBox = document.getElementById('directReplacementLayerWrapper');
+            const replacedDateBox = document.getElementById('slotReplacedDateContainer');
+            const sameDayMakeUpBox = document.getElementById('sameDayMakeUpWrapper');
+            const coversBox = document.getElementById('coversMissedSlotWrapper');
+
+            const isMissedStatus = status === 'absent' || status === 'postponed';
+            if (directLayerBox) directLayerBox.classList.toggle('hidden', !isMissedStatus);
+            if (replacedDateBox) replacedDateBox.classList.toggle('hidden', !(isMissedStatus && isOverlayChecked));
+            if (sameDayMakeUpBox) sameDayMakeUpBox.classList.toggle('hidden', isMissedStatus);
+            if (coversBox) {
+                const showCovers = status === 'replacement' || (status === 'attended' && makeUpMins > 0);
+                coversBox.classList.toggle('hidden', !showCovers);
+            }
+        }
+
+        function quickSetMakeUp(mins) {
+            const sel = document.getElementById('slotMakeUpSelect');
+            if (sel) {
+                sel.value = String(mins);
+                updateSlotModalVisibility();
+            }
+        }
+
+        function closeSlotModal() {
+            document.getElementById('slotModal')?.classList.add('hidden');
+            state.editingSlotIndex = null;
+        }
+
+        function saveSlotModal(event) {
+            event.preventDefault();
+            const student = getActiveStudent();
+            if (!student || !state.activeMonthKey || state.editingSlotIndex === null) return;
+
+            const slot = student.monthlyCards[state.activeMonthKey].slots[state.editingSlotIndex];
+            const status = document.getElementById('slotStatusSelect')?.value || 'attended';
+            const isMissed = status === 'absent' || status === 'postponed';
+            const overlayChecked = Boolean(document.getElementById('slotReplacedOverlayCheckbox')?.checked);
+
+            slot.status = status;
+            slot.date = document.getElementById('slotDateInput')?.value || slot.date;
+            slot.note = (document.getElementById('slotNoteInput')?.value || '').trim();
+
+            if (isMissed) {
+                slot.makeUpMinutes = 0;
+                slot.coversTarget = '';
+                slot.replacedOnDate = overlayChecked
+                    ? (document.getElementById('slotReplacedDateInput')?.value || getTodayIsoDate())
+                    : '';
+            } else {
+                slot.replacedOnDate = '';
+                slot.makeUpMinutes = Number(document.getElementById('slotMakeUpSelect')?.value) || 0;
+                slot.coversTarget = (status === 'replacement' || slot.makeUpMinutes > 0)
+                    ? (document.getElementById('slotCoversSelect')?.value || '')
+                    : '';
+            }
+
+            playStampSound('stamp');
+            markChanged(student);
+            closeSlotModal();
+            renderAll();
+            showToast('Stamp updated & saved!');
+        }
+
+        function clearCurrentSlot() {
+            const student = getActiveStudent();
+            if (!student || !state.activeMonthKey || state.editingSlotIndex === null) return;
+            const idx = state.editingSlotIndex;
+            student.monthlyCards[state.activeMonthKey].slots[idx] = {
+                status: null,
+                date: getSlotScheduledDate(state.activeMonthKey, student.lessonDayOfWeek, idx),
+                makeUpMinutes: 0,
+                note: '',
+                coversTarget: '',
+                replacedOnDate: ''
+            };
+            playStampSound('clear');
+            markChanged(student);
+            closeSlotModal();
+            renderAll();
+            showToast(`Cleared Week ${idx + 1} stamp.`);
+        }
+
+        // ==========================================
+        // STUDENT ADD / EDIT / PHOTO MODAL HANDLERS
+        // ==========================================
+        function openStudentModal(studentId = null) {
+            const modal = document.getElementById('studentModal');
+            if (!modal) return;
+            state.editingStudentId = studentId;
+            state.isProcessingPhoto = false;
+
+            const titleEl = document.getElementById('studentModalTitle');
+            const deleteBtn = document.getElementById('deleteStudentBtn');
+            const nameInput = document.getElementById('studentNameInput');
+            const codeInput = document.getElementById('studentCodeInput');
+            const dayInput = document.getElementById('studentDayInput');
+            const schedInput = document.getElementById('studentScheduleInput');
+            const levelInput = document.getElementById('studentLevelInput');
+            const ageInput = document.getElementById('studentAgeInput');
+            const phoneInput = document.getElementById('studentPhoneInput');
+            const notesInput = document.getElementById('studentNotesInput');
+            const photoFileInput = document.getElementById('studentPhotoInput');
+
+            if (photoFileInput) photoFileInput.value = '';
+
+            if (studentId) {
+                const stu = state.students.find(s => s.id === studentId);
+                if (!stu) return;
+                if (titleEl) titleEl.textContent = 'Edit Student ID Card';
+                if (deleteBtn) deleteBtn.classList.remove('hidden');
+                if (nameInput) nameInput.value = stu.name || '';
+                if (codeInput) codeInput.value = stu.studentCode || '';
+                if (dayInput) dayInput.value = String(stu.lessonDayOfWeek ?? 2);
+                if (schedInput) schedInput.value = stu.schedule || '';
+                if (levelInput) levelInput.value = stu.level || '';
+                if (ageInput) ageInput.value = stu.ageGroup || '';
+                if (phoneInput) phoneInput.value = stu.phone || '';
+                if (notesInput) notesInput.value = stu.bioNotes || '';
+                state.pendingPhotoDataUrl = stu.photoDataUrl || '';
+                state.pendingPhotoCleared = false;
+            } else {
+                if (titleEl) titleEl.textContent = 'Add New Student';
+                if (deleteBtn) deleteBtn.classList.add('hidden');
+                if (nameInput) nameInput.value = '';
+                if (codeInput) codeInput.value = `SD-2026-${String(state.students.length + 1).padStart(2, '0')}`;
+                if (dayInput) dayInput.value = '2';
+                if (schedInput) schedInput.value = '';
+                if (levelInput) levelInput.value = '';
+                if (ageInput) ageInput.value = '';
+                if (phoneInput) phoneInput.value = '';
+                if (notesInput) notesInput.value = '';
+                state.pendingPhotoDataUrl = '';
+                state.pendingPhotoCleared = false;
+            }
+
+            refreshModalAvatarPreview();
+            modal.classList.remove('hidden');
+        }
+
+        function closeStudentModal() {
+            document.getElementById('studentModal')?.classList.add('hidden');
+            state.editingStudentId = null;
+            state.pendingPhotoDataUrl = '';
+            state.pendingPhotoCleared = false;
+            state.isProcessingPhoto = false;
+        }
+
+        function refreshModalAvatarPreview() {
+            const box = document.getElementById('studentPhotoPreviewBox');
+            const removeBtn = document.getElementById('removeStudentPhotoBtn');
+            const nameVal = document.getElementById('studentNameInput')?.value || 'SD';
+            if (!box) return;
+
+            if (state.pendingPhotoDataUrl) {
+                box.innerHTML = `<img src="${state.pendingPhotoDataUrl}" alt="Preview" class="w-full h-full object-cover">`;
+                if (removeBtn) removeBtn.classList.remove('hidden');
+            } else {
+                box.textContent = getStudentInitials(nameVal);
+                if (removeBtn) removeBtn.classList.add('hidden');
+            }
+        }
+
+        async function handleStudentPhotoUpload(event) {
+            const file = event.target?.files?.[0];
+            if (!file) return;
+
+            const submitBtn = document.getElementById('saveStudentSubmitBtn');
+            state.isProcessingPhoto = true;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Processing Photo...';
+            }
+
+            try {
+                const compressed = await compressImageFileToDataUrl(file, 180, 0.78);
+                state.pendingPhotoDataUrl = compressed;
+                state.pendingPhotoCleared = false;
+                refreshModalAvatarPreview();
+                showToast('Photo ready! Click Save Student to lock it in.');
+            } catch (err) {
+                console.error('Photo upload error:', err);
+                showToast('Could not read that image file.');
+            } finally {
+                state.isProcessingPhoto = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Save Student';
+                }
+            }
+        }
+
+        function clearStudentPhoto() {
+            state.pendingPhotoDataUrl = '';
+            state.pendingPhotoCleared = true;
+            const photoFileInput = document.getElementById('studentPhotoInput');
+            if (photoFileInput) photoFileInput.value = '';
+            refreshModalAvatarPreview();
+        }
+
+        function saveStudentForm(event) {
+            event.preventDefault();
+            if (state.isProcessingPhoto) return;
+
+            const name = (document.getElementById('studentNameInput')?.value || '').trim();
+            if (!name) return;
+
+            const studentCode = (document.getElementById('studentCodeInput')?.value || '').trim();
+            const lessonDayOfWeek = parseInt(document.getElementById('studentDayInput')?.value || '2', 10);
+            const schedule = (document.getElementById('studentScheduleInput')?.value || '').trim();
+            const level = (document.getElementById('studentLevelInput')?.value || '').trim();
+            const ageGroup = (document.getElementById('studentAgeInput')?.value || '').trim();
+            const phone = (document.getElementById('studentPhoneInput')?.value || '').trim();
+            const bioNotes = (document.getElementById('studentNotesInput')?.value || '').trim();
+
+            if (state.editingStudentId) {
+                const stu = state.students.find(s => s.id === state.editingStudentId);
+                if (!stu) return;
+                const dayChanged = stu.lessonDayOfWeek !== lessonDayOfWeek;
+                stu.name = name;
+                stu.studentCode = studentCode || stu.studentCode;
+                stu.lessonDayOfWeek = lessonDayOfWeek;
+                stu.schedule = schedule;
+                stu.level = level;
+                stu.ageGroup = ageGroup;
+                stu.phone = phone;
+                stu.bioNotes = bioNotes;
+                stu.photoDataUrl = state.pendingPhotoDataUrl || '';
+                stu.photoCleared = Boolean(state.pendingPhotoCleared);
+                stu.updatedAt = Date.now();
+
+                if (dayChanged) {
+                    TERM_MONTHS.forEach(m => {
+                        const card = stu.monthlyCards[m.key];
+                        if (card && Array.isArray(card.slots)) {
+                            card.slots.forEach((sl, idx) => {
+                                if (!sl.status) {
+                                    sl.date = getSlotScheduledDate(m.key, lessonDayOfWeek, idx);
+                                }
+                            });
+                        }
+                    });
+                }
+
+                const linkedPeers = syncLinkedProfileGroup(stu);
+                state.students = sortStudentsByWeeklySchedule(state.students);
+                markChanged(stu);
+                linkedPeers.forEach(peer => syncStudentToCloud(peer));
+                closeStudentModal();
+                renderAll();
+                showToast(linkedPeers.length > 0 ? `Saved ${stu.name} & synced twin day card!` : `Saved ${stu.name}!`);
+            } else {
+                const newStu = ensureStudentMonthlyCards({
+                    id: `stu_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                    studentCode: studentCode || `SD-2026-${String(state.students.length + 1).padStart(2, '0')}`,
+                    name,
+                    lessonDayOfWeek,
+                    schedule,
+                    level,
+                    ageGroup,
+                    phone,
+                    bioNotes,
+                    photoDataUrl: state.pendingPhotoDataUrl || '',
+                    photoCleared: false,
+                    updatedAt: Date.now()
+                }, state.students.length);
+
+                clearDeletedStudentId(newStu.id);
+                state.students.push(newStu);
+                state.students = sortStudentsByWeeklySchedule(state.students);
+                state.activeStudentId = newStu.id;
+                state.activeMonthKey = null;
+                markChanged(newStu);
+                closeStudentModal();
+                renderAll();
+                showToast(`Added ${newStu.name}!`);
+            }
+        }
+
+        function deleteEditingStudent() {
+            if (!state.editingStudentId) return;
+            const idToDelete = state.editingStudentId;
+            const idx = state.students.findIndex(s => s.id === idToDelete);
+            if (idx === -1) return;
+            const removedName = state.students[idx].name;
+
+            recordDeletedStudentId(idToDelete);
+            state.students.splice(idx, 1);
+            if (state.activeStudentId === idToDelete) {
+                state.activeStudentId = state.students[0]?.id || null;
+                state.activeMonthKey = null;
+            }
+            deleteStudentFromCloud(idToDelete);
+            closeStudentModal();
+            renderAll();
+            showToast(`Removed ${removedName}.`);
+        }
+
+        // ==========================================
+        // WHATSAPP SUMMARY MODAL
+        // ==========================================
+        function buildWhatsAppMessage(student, monthKey) {
+            const monthMeta = getMonthMeta(monthKey);
+            const card = student.monthlyCards[monthKey];
+            const stats = analyzeMonthCard(student, monthKey);
+            const termBal = analyzeTermBalance(student);
+            const settlementsMap = getLinkedSettlementsMap(student);
+
+            const lines = [
+                `🥁 *SOUKA DRUMS — Attendance Update*`,
+                `Student: *${student.name}* (${monthMeta.label})`,
+                `Schedule: ${getWeekdayMeta(student.lessonDayOfWeek).full} · ${student.schedule || 'Flexible'}`,
+                ``
+            ];
+
+            card.slots.forEach((slot, idx) => {
+                if (!slot.status) {
+                    lines.push(`Wk ${idx + 1} — ⚪ Upcoming (${formatStampDate(slot.date)})`);
+                    return;
+                }
+                const targetKey = `${monthKey}:${idx}`;
+                const linkedEntries = settlementsMap[targetKey] || [];
+
+                if (slot.status === 'attended') {
+                    const extra = slot.makeUpMinutes > 0 ? ` (+${formatMinutesShort(slot.makeUpMinutes)} Make-Up)` : '';
+                    lines.push(`Wk ${idx + 1} — 🔵 Attended · ${formatStampDate(slot.date)}${extra}`);
+                } else if (slot.status === 'replacement') {
+                    lines.push(`Wk ${idx + 1} — 🟢 Replacement Class · ${formatStampDate(slot.date)}`);
+                } else if (slot.status === 'absent') {
+                    const repInfo = slot.replacedOnDate
+                        ? ` (✅ Replaced on ${formatStampDate(slot.replacedOnDate)})`
+                        : (linkedEntries.length > 0 ? ` (✅ Replaced on ${formatStampDate(linkedEntries[0].date)})` : '');
+                    lines.push(`Wk ${idx + 1} — 🔴 Student Absent · ${formatStampDate(slot.date)}${repInfo}`);
+                } else if (slot.status === 'postponed') {
+                    const repInfo = slot.replacedOnDate
+                        ? ` (✅ Replaced on ${formatStampDate(slot.replacedOnDate)})`
+                        : (linkedEntries.length > 0 ? ` (✅ Replaced on ${formatStampDate(linkedEntries[0].date)})` : '');
+                    lines.push(`Wk ${idx + 1} — 🟠 Studio Postponed · ${formatStampDate(slot.date)}${repInfo}`);
+                }
+            });
+
+            lines.push(``);
+            lines.push(stats.remainingMinutes > 0
+                ? `⏳ ${monthMeta.monthOnly} Make-Up Due: *${formatMinutesShort(stats.remainingMinutes)}*`
+                : `✅ ${monthMeta.monthOnly} Status: *All Clear / Settled*`
+            );
+            lines.push(`📊 Oct–Dec Overall Make-Up Balance: *${formatMinutesShort(termBal.netRemaining)} left*`);
+            lines.push(`Thank you! — Souka Drums`);
+
+            return lines.join('\n');
+        }
+
+        function openWhatsAppModal() {
+            const student = getActiveStudent();
+            if (!student || !state.activeMonthKey) return;
+            const textEl = document.getElementById('whatsappPreviewText');
+            const modal = document.getElementById('whatsappModal');
+            if (textEl) textEl.value = buildWhatsAppMessage(student, state.activeMonthKey);
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeWhatsAppModal() {
+            document.getElementById('whatsappModal')?.classList.add('hidden');
+        }
+
+        function copyWhatsAppMessage() {
+            const textEl = document.getElementById('whatsappPreviewText');
+            if (!textEl) return;
+            textEl.select();
+            textEl.setSelectionRange(0, 99999);
+            try {
+                document.execCommand('copy');
+                playStampSound('success');
+                showToast('WhatsApp summary copied!');
+            } catch (err) {
+                console.warn('Copy failed:', err);
+                showToast('Please select and copy the text manually.');
+            }
+        }
+
+        // ==========================================
+        // BACKUP & JSON EXPORT / IMPORT MODAL
+        // ==========================================
+        function updateBackupSummaryBanner() {
+            const banner = document.getElementById('backupDataSummary');
+            if (!banner) return;
+            const totalStamps = countTotalStampedSlots();
+            const totalPhotos = countStudentsWithPhotos();
+            banner.innerHTML = `🛡️ Protected: <strong>${state.students.length} students</strong> · <strong>${totalPhotos} photos</strong> · <strong>${totalStamps} stamps</strong>`;
+        }
+
+        function openBackupModal() {
+            updateBackupSummaryBanner();
+            document.getElementById('backupModal')?.classList.remove('hidden');
+        }
+
+        function closeBackupModal() {
+            document.getElementById('backupModal')?.classList.add('hidden');
+        }
+
+        function exportBackupJson() {
+            const payload = {
+                exportedAt: new Date().toISOString(),
+                app: 'souka-drums-attendance-2026',
+                students: state.students
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `souka-drums-backup-${getTodayIsoDate()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            showToast('Downloaded JSON backup file!');
+        }
+
+        function handleBackupFileImport(event) {
+            const file = event.target?.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.students) ? parsed.students : null);
+                    if (!list || list.length === 0) {
+                        showToast('Invalid backup file format.');
+                        return;
+                    }
+                    const nowTs = Date.now();
+                    list.forEach(s => { if (s?.id) clearDeletedStudentId(s.id); });
+                    state.students = sortStudentsByWeeklySchedule(list.map((s, idx) => {
+                        const norm = ensureStudentMonthlyCards(s, idx);
+                        norm.updatedAt = nowTs;
+                        return norm;
+                    }));
+                    state.activeStudentId = state.students[0]?.id || null;
+                    state.activeMonthKey = null;
+                    await manualSaveAllChanges(true);
+                    renderAll();
+                    closeBackupModal();
+                    showToast(`Restored ${state.students.length} students from backup!`);
+                } catch (err) {
+                    console.error('Import error:', err);
+                    showToast('Could not parse backup JSON file.');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // ==========================================
+        // BOOTSTRAP & INITIALIZATION
+        // ==========================================
+        async function bootstrapApp() {
+            const deletedIds = getDeletedStudentIds();
+            const defaults = buildDefaultStudents().filter(d => !deletedIds.has(d.id));
+            const localCached = loadFromLocalCache();
+            const idbCached = await loadFromIndexedDB();
+
+            const combinedMap = new Map();
+            defaults.forEach(d => combinedMap.set(d.id, d));
+
+            if (Array.isArray(localCached)) {
+                localCached.forEach((stu, idx) => {
+                    if (deletedIds.has(stu.id)) return;
+                    const norm = ensureStudentMonthlyCards(stu, idx);
+                    combinedMap.set(norm.id, combinedMap.has(norm.id) ? smartMergeStudentRecord(combinedMap.get(norm.id), norm) : norm);
+                });
+            }
+            if (Array.isArray(idbCached)) {
+                idbCached.forEach((stu, idx) => {
+                    if (deletedIds.has(stu.id)) return;
+                    const norm = ensureStudentMonthlyCards(stu, idx);
+                    combinedMap.set(norm.id, combinedMap.has(norm.id) ? smartMergeStudentRecord(combinedMap.get(norm.id), norm) : norm);
+                });
+            }
+
+            state.students = sortStudentsByWeeklySchedule(Array.from(combinedMap.values()));
+            state.activeStudentId = state.students[0]?.id || null;
+            state.activeMonthKey = null;
+
+            saveToLocalCache();
+            renderAll();
+            initCloudSync();
+        }
+
+        window.onload = function () {
+            bootstrapApp();
+        };
+    </script>
+</body>
+</html>
