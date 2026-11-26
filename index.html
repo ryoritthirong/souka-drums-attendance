@@ -760,17 +760,17 @@
                 firestoreApi = fsMod;
 
 const firebaseConfig = {
-    apiKey: "AIzaSyD8jYRFZz6Cv4wdL7CFoI-NpFAPi1Csg30",
-    authDomain: "souka-drums-attendance-tracker.firebaseapp.com",
-    projectId: "souka-drums-attendance-tracker",
-    storageBucket: "souka-drums-attendance-tracker.firebasestorage.app",
-    messagingSenderId: "189265900258",
-    appId: "1:189265900258:web:ae56095e1092c9e038e4bb",
-    measurementId: "G-KQ9ENW7TFY"
-  };
-  const app = appMod.initializeApp(firebaseConfig);
-  const auth = authMod.getAuth(app);
-  db = fsMod.getFirestore(app);
+  apiKey: "AIzaSyD8jYRFZz6Cv4wdL7CFoI-NpFAPi1Csg30",
+  authDomain: "souka-drums-attendance-tracker.firebaseapp.com",
+  projectId: "souka-drums-attendance-tracker",
+  storageBucket: "souka-drums-attendance-tracker.firebasestorage.app",
+  messagingSenderId: "189265900258",
+  appId: "1:189265900258:web:ae56095e1092c9e038e4bb",
+  measurementId: "G-KQ9ENW7TFY"
+};
+const app = appMod.initializeApp(firebaseConfig);
+const auth = authMod.getAuth(app);
+db = fsMod.getFirestore(app);
 
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await authMod.signInWithCustomToken(auth, __initial_auth_token);
